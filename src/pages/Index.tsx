@@ -1,12 +1,41 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import OnboardingScreen from '@/screens/OnboardingScreen';
+import HomeScreen from '@/screens/HomeScreen';
+import ChatScreen from '@/screens/ChatScreen';
+import GameScreen from '@/screens/GameScreen';
+import ProfileScreen from '@/screens/ProfileScreen';
+import TabBar from '@/components/TabBar';
 
 const Index = () => {
+  const [onboarded, setOnboarded] = useState(false);
+  const [activeTab, setActiveTab] = useState('home');
+
+  if (!onboarded) {
+    return <OnboardingScreen onComplete={() => setOnboarded(true)} />;
+  }
+
+  const screens: Record<string, React.ReactNode> = {
+    home: <HomeScreen />,
+    chat: <ChatScreen />,
+    game: <GameScreen />,
+    profile: <ProfileScreen />,
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="mobile-container relative bg-background">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.15 }}
+        >
+          {screens[activeTab]}
+        </motion.div>
+      </AnimatePresence>
+      <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 };
