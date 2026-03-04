@@ -1,147 +1,193 @@
 # CoupleGoAI — GitHub Copilot Instructions
 
-You are working on CoupleGoAI: a premium, Gen Z couples mobile app (React Native + TypeScript) with:
-
-- Partner connection via QR code
-- AI chat used together by two partners
-- Truth-or-Dare game (real-time sync, turn-based)
-- Bottom tabs: Home, Chat, Game, Profile
-
-Your output must be modern, secure, scalable, and maintainable.
+You are pair-coding on **CoupleGoAI**: a premium Gen Z couples mobile app.
 
 ---
 
-## 0) Source of truth + “read first”
+## Stack (locked — do not upgrade without justification)
 
-Before making changes, read:
+| Layer | Tech |
+|-------|------|
+| Framework | Expo ~54 (managed workflow) |
+| Runtime | React 19 · React Native 0.81 (New Architecture ready) |
+| Language | TypeScript 5 strict (`"strict": true`, zero `any`) |
+| Navigation | React Navigation 6 (native-stack + bottom-tabs) |
+| State | Zustand 5 — thin slices, selectors, no providers |
+| Animation | Reanimated 4 + Gesture Handler 2 (worklet-first) |
+| Styling | StyleSheet.create — co-located, no runtime overhead |
+| Assets | expo-linear-gradient · expo-blur · @expo/vector-icons |
+| QR | react-native-qrcode-svg + expo-camera |
+| Haptics | expo-haptics |
 
-- docs/features/<feature>/spec.md (requirements)
-- docs/features/<feature>/plan.md (architecture)
-- docs/features/<feature>/threat-model.md (security rules)
-- existing code patterns in this repo
+Path aliases (tsconfig `paths`, mirrored in babel `module-resolver`):
 
-If feature docs exist, DO NOT contradict them. Update docs only if asked or if required to reflect implementation reality.
+```
+@/*           → src/*
+@theme        → src/theme/index
+@components/* → src/components/*
+@screens/*    → src/screens/*
+@navigation/* → src/navigation/*
+@hooks/*      → src/hooks/*
+@store/*      → src/store/*
+@types/*      → src/types/*
+@utils/*      → src/utils/*
+```
+
+Always use aliases in imports. Never use deep relative paths (`../../..`).
 
 ---
 
-## 1) Architecture (senior, production-grade)
+## 0 · Source of truth — read before touching code
 
-Use strict boundaries:
+1. `docs/features/<feature>/spec.md` — requirements
+2. `docs/features/<feature>/plan.md` — architecture
+3. `docs/features/<feature>/threat-model.md` — security rules
+4. Existing code patterns in `src/`
 
-**UI (screens/components) → Domain (use-cases) → Data (api/storage/realtime)**
+If docs exist for a feature, **do not contradict them**. Update docs only when asked or when implementation reality requires it.
+
+### Feature creation entry point
+
+To start a new feature, use the **Orchestrator agent** (`@Orchestrator`).
+It will scaffold `docs/features/<feature>/`, create or validate `spec.md` (from `docs/template-spec.md`), then drive: Architect → Security → Implementer → Reviewer.
+
+---
+
+## 1 · Architecture — strict layered boundaries
+
+```
+src/
+  components/ui/   ← Pure presentational (props in, JSX out)
+  screens/         ← Screen-level composition, navigation-aware
+  hooks/           ← Orchestration hooks (bridge UI ↔ domain)
+  store/           ← Zustand slices (thin, typed, action-only)
+  domain/          ← Business rules, pure functions, use-cases
+  data/            ← API clients, persistence, realtime adapters
+  types/           ← Shared type definitions, discriminated unions
+  theme/           ← Design tokens (colors, typography, spacing, radii, shadows)
+  navigation/      ← Navigators, route types, deep link config
+  utils/           ← Pure helpers (no side-effects)
+```
+
+**Dependency direction (enforced):**
+
+```
+UI (screens/components) → hooks → domain → data (interfaces)
+                                          ↘ types/theme/utils (shared)
+```
 
 Rules:
+- UI must **never** call fetch / storage / realtime directly.
+- Domain contains business logic, depends on interfaces — not implementations.
+- Data layer implements interfaces (API clients, persistence, sync).
+- Hooks orchestrate: compose domain + data, expose to UI.
+- No circular imports. No barrel re-exports beyond `theme/index.ts` and `types/index.ts`.
 
-- UI must not call fetch/storage/realtime directly.
-- Domain contains business rules + pure logic and depends on interfaces, not implementations.
-- Data layer implements those interfaces (API clients, persistence, realtime sync).
-- Prefer small modules, explicit types, dependency direction enforced.
+### Zustand patterns
 
-Prefer:
+```ts
+// Thin slices — actions co-located, selectors external
+export const useXStore = create<XStore>((set, get) => ({ ... }));
 
-- TypeScript strict, no `any`
-- typed errors (Result/Outcome pattern or discriminated unions)
-- predictable state (hooks + minimal state surface)
-- clear folder structure: `src/ui`, `src/domain`, `src/data`, `src/shared`, `src/theme`, `src/navigation`
+// ALWAYS use selectors — never destructure the whole store
+const value = useXStore((s) => s.value);
 
-No “mega refactors” unless requested.
+// Derived state — compute in selectors or hooks, not in store
+```
 
----
+### Component patterns
 
-## 2) Security & privacy (must-follow)
+```ts
+// Functional only. No class components. No default exports.
+export const MyComponent: React.FC<Props> = React.memo(({ ... }) => { ... });
 
-- Never log secrets, tokens, auth headers, PII, or full payloads.
-- Validate inputs at trust boundaries: deep links, QR payloads, push payloads, API responses, user input.
-- Tokens/secrets must use secure storage (never AsyncStorage).
-- Least privilege: request only permissions needed; gate by user intent.
-- Handle session expiry explicitly; wipe sensitive state on logout.
-- Treat real-time sync as untrusted input: validate message shapes, turn ownership, and room membership.
-
-If security requirements conflict with implementation constraints, stop and propose a safe alternative.
-
----
-
-## 3) Reliability & quality
-
-- Network: timeouts + typed error handling; retries only where safe.
-- User-facing flows must include: loading / error / empty states.
-- Avoid unhandled promises.
-- Add tests for non-trivial logic (domain). Add seams for integration/e2e.
-
-When you implement:
-
-- Provide a short plan
-- Then implement with small diffs
-- Then list files changed + how to test
+// Co-locate styles at bottom of file
+const styles = StyleSheet.create({ ... });
+```
 
 ---
 
-## 4) Brand + UI system (must match landing identity)
+## 2 · Security & privacy (non-negotiable)
 
-The app must feel like a natural extension of the CoupleGoAI landing page.
+- **Never** log secrets, tokens, auth headers, PII, or full request/response bodies.
+- **Validate** at trust boundaries: deep links, QR payloads, push data, API responses, user input.
+- Tokens/secrets → `expo-secure-store` (never AsyncStorage, never MMKV for secrets).
+- **Least privilege**: request only permissions needed, gate by explicit user intent.
+- Handle session expiry explicitly; **wipe** all sensitive state on logout (`store.reset()` + secure storage clear).
+- Real-time sync is **untrusted input**: validate shapes with runtime checks, verify turn ownership, room membership.
+- Error messages shown to users must **never** contain stack traces, internal IDs, or token fragments.
 
-Tone: warm, romantic, premium, modern, slightly playful (not childish), minimal cognitive load.
-
-Visual system:
-
-- Pastel blush/lavender near-white backgrounds with subtle gradient washes
-- Editorial serif for emotional hero/headings; clean sans for UI and body
-- Pill-first CTAs, gradient accents used sparingly
-- Card-based sections with soft corners, subtle borders/shadows
-- Generous spacing, thumb-friendly tap targets
-
-Implementation requirements:
-
-- Centralized theme/tokens: colors, typography, spacing, radii, shadows
-- Semantic tokens (e.g. `bg.canvas`, `text.primary`, `accent.gradientStart`)
-- Consistent components: buttons, cards, badges/pills, chat bubbles, game cards
-- Motion: subtle, smooth micro-interactions (small scale/fade/slide), never distracting
+If a security requirement conflicts with a feature constraint, **stop and propose** a safe alternative.
 
 ---
 
-## 5) Feature-specific UX constraints
+## 3 · Reliability & quality
 
-Onboarding:
+- Network calls: typed errors (`Result<T, E>` or discriminated unions), timeouts, retries only for idempotent GETs.
+- Every user-facing flow: loading → content → error → empty states.
+- Zero unhandled promises — always `catch` or `try/catch`.
+- Tests for domain logic (pure functions, use-cases). Add seams/hooks for integration/e2e.
+- Prefer `ErrorBoundary` at screen level for graceful crash recovery.
 
-- Max 4–5 screens
-- QR generate + scan + confirmation
-- Minimal tutorial
+### Code minimalism
 
-Home:
-
-- 2 primary actions: AI Chat, Truth or Dare
-- Optional: partner status, streak, daily suggestion (keep minimal)
-
-AI Chat:
-
-- Clean chat, large readable typography, generous spacing
-- Two users visually distinct
-- AI suggestions, edit sent message
-- Minimal icons, premium feel
-
-Truth or Dare:
-
-- Categories: Romantic, Spicy, Fun/Silly
-- Card-based interaction, turn-based
-- Real-time sync between partners
-- Clear progress indicator, subtle animations
+- Ship the smallest correct diff.
+- Delete dead code immediately. No commented-out code.
+- One concept per file. If a file exceeds ~200 lines, split.
+- Prefer composition over configuration. Prefer explicit over clever.
+- No premature abstraction — extract only when a pattern repeats 3+ times.
 
 ---
 
-## 6) Defaults & constraints
+## 4 · Performance (React Native specific)
 
-- Use functional components + hooks.
-- Prefer existing libraries and patterns in the repo; do not add dependencies unless justified.
-- Any new dependency must include: why, alternatives considered, impact, and minimal usage surface.
+- **JS thread**: never block with heavy sync computation. Offload to worklets or async.
+- **Re-renders**: use `React.memo` on list items and expensive subtrees. Use stable callbacks (`useCallback` with correct deps).
+- **Lists**: `FlatList` with `keyExtractor`, `getItemLayout` when heights are fixed, `windowSize` tuning.
+- **Animations**: Reanimated `useAnimatedStyle` + `useSharedValue` — run on UI thread. Never animate with `setState`.
+- **Images**: use cached image libraries, specify dimensions, avoid layout thrashing.
+- **Bundle**: no dynamic `require()`. Tree-shake via named exports. Lazy-load heavy screens with navigation lazy.
+- **Startup**: minimize root-level providers. Defer non-critical init with `InteractionManager.runAfterInteractions`.
 
 ---
 
-## 7) Output expectations
+## 5 · Brand & UI system
 
-Every meaningful change must include:
+Tone: warm, romantic, premium, modern, slightly playful — never childish. Minimal cognitive load.
 
-- What you changed and why
-- Files changed (grouped)
-- Security notes (what you did to stay safe)
-- Tests added/updated
-- Manual test steps
+Visual system (references `src/theme/`):
+- Pastel blush/lavender backgrounds from `palette.pink50`–`pink100`, `lavender50`–`lavender100`
+- Gradients: `gradients.primary` (pink→lavender), used sparingly on CTAs
+- Editorial serif for emotional headings (`fontFamilies.serif`), clean sans for body (`fontFamilies.sans`)
+- Pill-shaped CTAs via `GradientButton`. Card-based layout via `Card` component.
+- Generous spacing (`spacing.lg`+), thumb-friendly targets (min 44pt), soft corners (`radii.lg`+)
+- Motion: subtle `withTiming`/`withSpring` (scale, fade, slide). Never jarring. Never blocks interaction.
+
+---
+
+## 6 · Feature UX baselines
+
+**Onboarding**: 4–5 screens max. QR generate → scan → confirmed. Minimal tutorial.
+**Home**: 2 primary CTAs (AI Chat, Truth or Dare). Optional: partner status, streak.
+**AI Chat**: Clean, large typography, generous spacing. User/partner visually distinct. AI suggestions. Edit sent message.
+**Truth or Dare**: Categories (romantic/spicy/fun). Card-based, turn-based, real-time sync. Subtle animations.
+
+---
+
+## 7 · Constraints
+
+- Functional components + hooks only.
+- Prefer existing libraries/patterns. Do not add dependencies without: **why**, alternatives considered, bundle impact.
+- No large refactors unless explicitly requested.
+- All new files must use path aliases.
+- File naming: `PascalCase.tsx` for components/screens, `camelCase.ts` for logic/utils/hooks.
+
+---
+
+## 8 · Output expectations (every meaningful change)
+
+1. **What** changed and **why** (one sentence)
+2. **Files** changed (grouped by layer)
+3. **Security** notes (what you validated)
+4. **Tests** added/updated
+5. **Manual test** steps (how to verify on device/simulator)

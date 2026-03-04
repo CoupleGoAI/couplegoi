@@ -1,43 +1,14 @@
 # Feature: <name>
 
-## Goal
+## What
 
-One sentence: what are we building and why?
+What are we building? Describe the feature in plain language.
 
-## User story
+## Done when
 
-As a <user>, I want <thing>, so that <benefit>.
+- [ ] ...
+- [ ] ...
 
-## Acceptance criteria (must be testable)
+## Notes
 
-- [ ] …
-- [ ] …
-- [ ] …
-
-## Non-goals (explicitly NOT doing)
-
-- …
-
-## UX notes
-
-- Screens involved:
-- Empty/loading/error states:
-- Edge cases:
-
-## Data & API (if relevant)
-
-- Endpoints / inputs / outputs:
-- Offline behavior:
-- Caching rules:
-
-## Security & privacy
-
-- PII involved? (yes/no + what)
-- Auth required? (yes/no)
-- Permissions needed? (camera/location/etc)
-
-## Constraints
-
-- Must use: (existing libs/patterns)
-- Must NOT use: (new libs / refactor / etc)
-- Performance requirements:
+Anything else: UX ideas, edge cases, constraints, things to avoid. Optional — delete if empty.
