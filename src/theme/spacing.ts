@@ -1,7 +1,17 @@
 /**
  * CoupleGoAI — Spacing & Layout Tokens
  * Base unit: 4px. All values are multiples of 4.
+ *
+ * IMPORTANT: Canonical semantic spacing/radii/shadows live in `tokens.ts`.
+ * This file preserves the full numeric spacing scale and layout constants
+ * for backward compatibility. New code should prefer tokens.ts semantic
+ * names (xs/sm/md/lg/xl) or NativeWind className.
  */
+import {
+  radii as tokenRadii,
+  shadows as tokenShadows,
+  spacing as tokenSpacing,
+} from './tokens';
 
 export const spacing = {
   // Micro
@@ -28,12 +38,18 @@ export const radii = {
   none:  0,
   sm:    4,
   md:    8,
-  lg:    12,
+  lg:    tokenRadii.radiusSm,   // 12
   xl:    16,
-  '2xl': 20,
+  '2xl': tokenRadii.radius,     // 20
   '3xl': 24,
-  full:  9999,  // pill-shaped
+  full:  tokenRadii.radiusFull, // 999
 } as const;
+
+/**
+ * Semantic radii — forwarded from tokens.ts.
+ * Prefer these in new code, or use NativeWind `rounded-sm/md/xl/full`.
+ */
+export const semanticRadii = tokenRadii;
 
 export const shadows = {
   none: {
@@ -43,35 +59,17 @@ export const shadows = {
     shadowRadius: 0,
     elevation: 0,
   },
-  sm: {
-    shadowColor: '#1E0A3C',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  md: {
-    shadowColor: '#1E0A3C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  lg: {
-    shadowColor: '#1E0A3C',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.14,
-    shadowRadius: 24,
-    elevation: 10,
-  },
-  brand: {
-    shadowColor: '#E8327A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
-  },
+  sm: tokenShadows.sm,
+  md: tokenShadows.md,
+  lg: tokenShadows.lg,
+  brand: tokenShadows.glowPrimary,
 } as const;
+
+/**
+ * Semantic spacing — forwarded from tokens.ts.
+ * Prefer these in new code, or use NativeWind spacing utilities.
+ */
+export const semanticSpacing = tokenSpacing;
 
 export const layout = {
   screenPaddingH: spacing['5'],   // 20px horizontal screen padding

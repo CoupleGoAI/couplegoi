@@ -26,6 +26,7 @@ You are accountable for production quality. You block anything that compromises 
 ## Review checklist (all sections mandatory)
 
 ### 1. Correctness
+
 - All acceptance criteria from spec.md met
 - Edge cases handled (empty data, offline, race conditions)
 - No unhandled async/promises
@@ -41,10 +42,12 @@ This section is **P0-eligible**. Any violation below is a blocker.
 - `StyleSheet.create` used only for dynamic computed values, platform-specific exceptions, or NativeWind-unsupported cases. If present, a comment must justify it.
 - No ad-hoc font sizes — typography must use semantic names from `src/theme/typography.ts`.
 - `tailwind.config.js` must map any new token added to `tokens.ts`.
+- **Website consistency**: mobile app must match the website theme — same color roles (`background`, `foreground`, `primary`, `accent`, `muted`), soft rounded radii, soft shadows only. No harsh elevation or sharp corners.
 
 Approve only when all styling routes through semantic tokens.
 
 ### 3. Architecture boundaries
+
 - UI → hooks → domain → data. No shortcuts.
 - No business logic in screens/components
 - No direct fetch/storage calls from UI
@@ -54,6 +57,7 @@ Approve only when all styling routes through semantic tokens.
 - Imports use path aliases, no deep relative paths
 
 ### 4. Security & privacy (from threat-model.md)
+
 - **Every MUST** requirement in threat-model.md addressed
 - No token/PII logging (`console.log`, crash reporters)
 - Secrets in `expo-secure-store`, not AsyncStorage
@@ -63,12 +67,14 @@ Approve only when all styling routes through semantic tokens.
 - Real-time sync treated as untrusted: shape validation, turn ownership, room checks
 
 ### 5. Reliability
+
 - Typed error handling (`Result<T, E>` or discriminated unions)
 - Network: timeouts, retries only for idempotent operations
 - User-facing states: loading / content / error / empty — all present
 - ErrorBoundary at screen level
 
 ### 6. Performance (React Native specific)
+
 - `React.memo` on list items and expensive subtrees
 - `useCallback` with correct deps for prop-passed functions
 - FlatList with `keyExtractor`, `getItemLayout` where applicable
@@ -76,6 +82,7 @@ Approve only when all styling routes through semantic tokens.
 - No JS thread blocking
 
 ### 7. Tests
+
 - Domain logic covered (pure functions, use-cases)
 - Security-critical paths tested (no token logging, input validation)
 - No flaky test patterns (no timers, no network in unit tests)
@@ -83,6 +90,7 @@ Approve only when all styling routes through semantic tokens.
 - Test seams for future e2e
 
 ### 8. Code quality
+
 - Clean, readable, consistent style
 - Small functions (<30 lines preferred)
 - No dead code, no commented-out code
@@ -91,6 +99,7 @@ Approve only when all styling routes through semantic tokens.
 - Minimal diff — no changes outside feature scope
 
 ### 9. Documentation
+
 - `implementation-notes.md` exists with: summary, files changed, security checklist, test steps
 - Plan deviations documented with rationale
 
@@ -104,25 +113,30 @@ Approve only when all styling routes through semantic tokens.
 ## Verdict: APPROVE | REQUEST CHANGES
 
 ## P0 — Blockers (must fix before merge)
+
 - **[P0-1]** <file/module> — <issue>. Fix: <concrete suggestion>.
 - ...
 
 ## P1 — Important (should fix, may merge with follow-up ticket)
+
 - **[P1-1]** <file/module> — <issue>. Fix: <suggestion>.
 - ...
 
 ## P2 — Minor (nice-to-have, reviewer discretion)
+
 - **[P2-1]** <file/module> — <issue>.
 - ...
 
 ## Verified against
+
 - [ ] spec.md acceptance criteria
 - [ ] plan.md architecture boundaries
 - [ ] threat-model.md MUST requirements
 - [ ] copilot-instructions.md patterns
-- [ ] Styling: no raw hex, no arbitrary spacing, all tokens from tokens.ts, NativeWind className used
+- [ ] Styling: no raw hex, no arbitrary spacing, all tokens from tokens.ts, NativeWind className used, website theme consistency maintained
 
 ## Notes
+
 <optional — follow-up suggestions, kudos, observations>
 ```
 
@@ -130,11 +144,11 @@ Approve only when all styling routes through semantic tokens.
 
 ## Severity definitions
 
-| Level | Meaning | Merge? |
-|-------|---------|--------|
-| P0 | Security flaw, data loss, crash, wrong behavior, missing MUST requirement | ❌ Block |
-| P1 | Performance issue, missing edge case, tests gap, architecture drift | ⚠️ Flag |
-| P2 | Style, naming, minor optimization | ✅ Optional |
+| Level | Meaning                                                                   | Merge?      |
+| ----- | ------------------------------------------------------------------------- | ----------- |
+| P0    | Security flaw, data loss, crash, wrong behavior, missing MUST requirement | ❌ Block    |
+| P1    | Performance issue, missing edge case, tests gap, architecture drift       | ⚠️ Flag     |
+| P2    | Style, naming, minor optimization                                         | ✅ Optional |
 
 ---
 

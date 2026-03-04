@@ -120,11 +120,16 @@ Summary of security-sensitive areas (detailed analysis deferred to Security agen
 
 - `src/theme/tokens.ts` is the **single source of truth** for all design tokens. No color, radius, or shadow may be defined anywhere else.
 - `src/theme/typography.ts` owns all font families and sizes as semantic names.
-- `tailwind.config.js` must extend tokens by semantic name. Document the exact Tailwind class name that maps to each token in the plan (e.g., `bg-background` → `tokens.colors.background`).
+- `tailwind.config.js` must extend tokens by semantic name. Document the exact Tailwind class name that maps to each token in the plan:
+  `bg-background`, `text-foreground`, `text-foregroundMuted`, `text-gray`,
+  `bg-primary`, `bg-primaryLight`, `bg-accent`, `bg-accentLight`,
+  `bg-muted`, `bg-accentSoft`, `border-default`,
+  `rounded-md` (radiusSm=12), `rounded-xl` (radius=20), `rounded-full` (radiusFull=999).
 - When planning UI files, specify the NativeWind `className` strings to use — not raw values.
 - `StyleSheet.create` is allowed **only** for dynamic computed values, platform-specific exceptions, or NativeWind-unsupported edge cases. Call this out explicitly when used.
 - Do **not** invent new colors or radii. If a new token is truly needed, add it to `tokens.ts` and map it in `tailwind.config.js` — document this in the plan.
 - Ensure no duplication: check `src/theme/` before declaring a new token.
+- **Website consistency**: mobile app must match the website theme — same semantic color roles, soft rounded radii, soft shadows only. No harsh elevation or sharp corners.
 
 ---
 

@@ -1,8 +1,13 @@
 import { Platform } from 'react-native';
+import { typographyTokens } from './tokens';
 
 /**
  * CoupleGoAI — Typography Tokens
  * Mirrors the editorial serif / clean sans system from the website.
+ *
+ * IMPORTANT: Font size, weight, lineHeight, and letterSpacing primitives
+ * are canonical in `tokens.ts`. This file re-exports them and builds
+ * composed text styles. Do NOT add ad-hoc font sizes in components.
  */
 
 // ─── Font Families ────────────────────────────────────────────────────────────
@@ -37,46 +42,23 @@ export const fontFamilies = {
   }),
 } as const;
 
-// ─── Font Sizes ───────────────────────────────────────────────────────────────
+// ─── Font Sizes (from tokens.ts + extras) ────────────────────────────────────
 export const fontSize = {
-  xs:   11,
-  sm:   13,
-  base: 15,
-  md:   17,
-  lg:   19,
-  xl:   22,
-  '2xl':26,
-  '3xl':30,
-  '4xl':36,
-  '5xl':44,
-  '6xl':52,
+  ...typographyTokens.fontSize,
+  '6xl': 52,
 } as const;
 
-// ─── Line Heights ─────────────────────────────────────────────────────────────
-export const lineHeight = {
-  tight:  1.15,
-  snug:   1.3,
-  normal: 1.5,
-  relaxed:1.7,
-} as const;
+// ─── Line Heights (from tokens.ts) ───────────────────────────────────────────
+export const lineHeight = typographyTokens.lineHeight;
 
-// ─── Font Weights ─────────────────────────────────────────────────────────────
+// ─── Font Weights (from tokens.ts + extras) ──────────────────────────────────
 export const fontWeight = {
-  regular: '400' as const,
-  medium:  '500' as const,
-  semibold:'600' as const,
-  bold:    '700' as const,
-  extrabold:'800' as const,
+  ...typographyTokens.fontWeight,
+  extrabold: '800' as const,
 } as const;
 
-// ─── Letter Spacing ───────────────────────────────────────────────────────────
-export const letterSpacing = {
-  tight:  -0.5,
-  normal:  0,
-  wide:    0.5,
-  wider:   1,
-  widest:  2,
-} as const;
+// ─── Letter Spacing (from tokens.ts) ─────────────────────────────────────────
+export const letterSpacing = typographyTokens.letterSpacing;
 
 // ─── Composed Text Styles ─────────────────────────────────────────────────────
 export const textStyles = {

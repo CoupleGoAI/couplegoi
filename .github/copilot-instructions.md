@@ -6,18 +6,18 @@ You are pair-coding on **CoupleGoAI**: a premium Gen Z couples mobile app.
 
 ## Stack (locked — do not upgrade without justification)
 
-| Layer | Tech |
-|-------|------|
-| Framework | Expo ~54 (managed workflow) |
-| Runtime | React 19 · React Native 0.81 (New Architecture ready) |
-| Language | TypeScript 5 strict (`"strict": true`, zero `any`) |
-| Navigation | React Navigation 6 (native-stack + bottom-tabs) |
-| State | Zustand 5 — thin slices, selectors, no providers |
-| Animation | Reanimated 4 + Gesture Handler 2 (worklet-first) |
-| Styling | NativeWind 4 (primary) · StyleSheet.create (dynamic/exceptions only) |
-| Assets | expo-linear-gradient · expo-blur · @expo/vector-icons |
-| QR | react-native-qrcode-svg + expo-camera |
-| Haptics | expo-haptics |
+| Layer      | Tech                                                                 |
+| ---------- | -------------------------------------------------------------------- |
+| Framework  | Expo ~54 (managed workflow)                                          |
+| Runtime    | React 19 · React Native 0.81 (New Architecture ready)                |
+| Language   | TypeScript 5 strict (`"strict": true`, zero `any`)                   |
+| Navigation | React Navigation 6 (native-stack + bottom-tabs)                      |
+| State      | Zustand 5 — thin slices, selectors, no providers                     |
+| Animation  | Reanimated 4 + Gesture Handler 2 (worklet-first)                     |
+| Styling    | NativeWind 4 (primary) · StyleSheet.create (dynamic/exceptions only) |
+| Assets     | expo-linear-gradient · expo-blur · @expo/vector-icons                |
+| QR         | react-native-qrcode-svg + expo-camera                                |
+| Haptics    | expo-haptics                                                         |
 
 Path aliases (tsconfig `paths`, mirrored in babel `module-resolver`):
 
@@ -77,6 +77,7 @@ UI (screens/components) → hooks → domain → data (interfaces)
 ```
 
 Rules:
+
 - UI must **never** call fetch / storage / realtime directly.
 - Domain contains business logic, depends on interfaces — not implementations.
 - Data layer implements interfaces (API clients, persistence, sync).
@@ -157,6 +158,7 @@ If a security requirement conflicts with a feature constraint, **stop and propos
 Tone: warm, romantic, premium, modern, slightly playful — never childish. Minimal cognitive load.
 
 Visual system (references `src/theme/`):
+
 - All design tokens live in `src/theme/tokens.ts` — single source of truth. No duplicated colors anywhere else.
 - Semantic color roles: `background`, `foreground`, `foregroundMuted`, `gray`, `primary`, `primaryLight`, `accent`, `accentLight`, `muted`, `accentSoft`, `borderDefault`.
 - Radii: `radius` (20), `radiusSm` (12), `radiusFull` (999) — always via tokens, never inline values.
@@ -193,25 +195,37 @@ Visual system (references `src/theme/`):
 
 - `src/theme/tokens.ts` — **all** semantic design tokens (colors, radii, spacing, shadows). No color defined anywhere else.
 - `src/theme/typography.ts` — all font families and sizes as semantic names (`textTitle`, `textBody`, `textCaption`, …).
-- `tailwind.config.js` extends these tokens by semantic name (`bg-background`, `text-foreground`, `bg-primary`, `border-default`, `rounded-md`, `rounded-xl`, `rounded-full`, …).
+- `tailwind.config.js` extends these tokens by semantic name:
+  `bg-background`, `text-foreground`, `text-foregroundMuted`, `text-gray`,
+  `bg-primary`, `bg-primaryLight`, `bg-accent`, `bg-accentLight`,
+  `bg-muted`, `bg-accentSoft`, `border-default`,
+  `rounded-md` (radiusSm=12), `rounded-xl` (radius=20), `rounded-full` (radiusFull=999).
 
 ### Token palette (canonical)
 
-| Token | Value |
-|-------|-------|
-| `background` | `#ffffff` |
-| `foreground` | `#1e1230` |
-| `foregroundMuted` | `#42335a` |
-| `gray` | `#8a7b9e` |
-| `primary` | `#f48ba6` |
-| `primaryLight` | `#f9b5c8` |
-| `accent` | `#cc7be8` |
-| `accentLight` | `#dda8f0` |
-| `muted` | `#fef0f4` |
-| `accentSoft` | `#f5eafa` |
-| `borderDefault` | soft neutral derived from `foreground` |
+| Token             | Value                                  |
+| ----------------- | -------------------------------------- |
+| `background`      | `#ffffff`                              |
+| `foreground`      | `#1e1230`                              |
+| `foregroundMuted` | `#42335a`                              |
+| `gray`            | `#8a7b9e`                              |
+| `primary`         | `#f48ba6`                              |
+| `primaryLight`    | `#f9b5c8`                              |
+| `accent`          | `#cc7be8`                              |
+| `accentLight`     | `#dda8f0`                              |
+| `muted`           | `#fef0f4`                              |
+| `accentSoft`      | `#f5eafa`                              |
+| `borderDefault`   | soft neutral derived from `foreground` |
 
 Radii: `radius=20`, `radiusSm=12`, `radiusFull=999`. Spacing: `xs/sm/md/lg/xl`. Shadows: `sm/md/lg` + optional `glowPrimary/glowAccent`.
+
+### Website theme consistency (mandatory)
+
+- Mobile app must visually match the website theme.
+- Same semantic color roles: `background`, `foreground`, `primary`, `accent`, `muted`.
+- Same border-radii feeling: soft, rounded — no sharp corners.
+- Soft shadows only — no harsh elevation / hard drop shadows.
+- Do NOT invent new colors. If a genuinely new token is needed, add it to `tokens.ts` and `tailwind.config.js` first.
 
 ### Styling rules (strict)
 

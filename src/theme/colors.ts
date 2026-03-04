@@ -2,7 +2,12 @@
  * CoupleGoAI — Color Tokens
  * Extracted from the website's pink/lavender brand identity.
  * All palette values are static; semantic aliases map palette → intent.
+ *
+ * IMPORTANT: Canonical semantic colors live in `tokens.ts`.
+ * This file preserves the legacy palette + light/dark schemes for backward
+ * compatibility. Do NOT add new color values here — add them to tokens.ts.
  */
+import { colors as tokenColors, gradients as tokenGradients } from './tokens';
 
 // ─── Palette ─────────────────────────────────────────────────────────────────
 export const palette = {
@@ -55,10 +60,11 @@ export const palette = {
 } as const;
 
 // ─── Gradient Definitions ────────────────────────────────────────────────────
+// Canonical gradients come from tokens.ts; legacy aliases preserved here.
 export const gradients = {
-  // Primary brand gradient (pink → lavender)
-  brand:    [palette.pink500, palette.lavender500] as string[],
-  brandSoft:[palette.pink300, palette.lavender400] as string[],
+  // Primary brand gradient (pink → lavender) — derived from tokens
+  brand:    [...tokenGradients.brand] as string[],
+  brandSoft:[...tokenGradients.brandSoft] as string[],
   // Hero background wash
   heroWash: [palette.lavender50, palette.pink50, '#FFFFFF'] as string[],
   // Card backgrounds
@@ -139,3 +145,9 @@ export const dark = {
 } as const;
 
 export type ColorTheme = typeof light;
+
+/**
+ * Semantic colors — forwarded from tokens.ts for convenience.
+ * New code should import from tokens.ts directly or use NativeWind className.
+ */
+export const semanticColors = tokenColors;

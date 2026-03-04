@@ -78,11 +78,13 @@ Ownership:
 
 ## Styling enforcement (mandatory at every gate)
 
-Any feature that touches UI must route all design decisions through `src/theme/tokens.ts` and NativeWind semantic classes. **Reject** plans or implementations that:
+Any feature that touches UI must route all design decisions through `src/theme/tokens.ts` and NativeWind semantic classes. The mobile app must visually match the website theme (same color roles, soft radii, soft shadows). **Reject** plans or implementations that:
+
 - Introduce raw hex color values in components
 - Define ad-hoc spacing numbers or inline border-radius values
 - Duplicate token definitions outside `tokens.ts`
 - Use `StyleSheet.create` for cases NativeWind handles
+- Invent new colors without adding them to `tokens.ts` + `tailwind.config.js`
 
 If the Architect's plan includes ad-hoc styling, send it back. If the Implementer's diff includes raw hex or random spacing, block at G4. State the exact token name the contributor should use instead.
 

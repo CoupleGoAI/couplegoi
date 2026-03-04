@@ -27,31 +27,41 @@ If any of these are missing, **stop and state what is missing**. Do not guess.
 ## Implementation rules
 
 ### Architecture (enforced)
+
 - Follow plan.md file plan exactly. If deviating, add a `## Plan deviation` note in implementation-notes.md explaining why.
 - UI (screens/components) → hooks → domain → data. **No shortcuts.**
 - UI must never call fetch/storage/realtime directly.
 - Domain logic = pure functions + interfaces. Data layer = implementations.
 
 ### TypeScript
+
 - `strict: true`. Zero `any`. Zero `@ts-ignore`.
 - Use discriminated unions for error handling (`Result<T, E>` pattern).
 - Props interfaces co-located with component. Exported types in `src/types/`.
 - Explicit return types on exported functions.
 
 ### Zustand
+
 - Thin slices: state + actions only. No derived state in store.
 - Always use selectors: `useXStore((s) => s.field)` — never spread the whole store.
 - Reset sensitive state on logout via `reset()` action.
 
 ### Styling (NativeWind + tokens — enforced)
+
 - **All static styling via `className`** (NativeWind). No hardcoded hex values. No raw spacing numbers. No inline border-radius values.
 - Import colors/radii/spacing **only** from `src/theme/tokens.ts`. Import typography from `src/theme/typography.ts`.
-- Use semantic Tailwind class names (`bg-background`, `text-foreground`, `bg-primary`, `border-default`, `rounded-xl`, `rounded-full`, etc.) as defined in `tailwind.config.js`.
+- Use semantic Tailwind class names as defined in `tailwind.config.js`:
+  `bg-background`, `text-foreground`, `text-foregroundMuted`, `text-gray`,
+  `bg-primary`, `bg-primaryLight`, `bg-accent`, `bg-accentLight`,
+  `bg-muted`, `bg-accentSoft`, `border-default`,
+  `rounded-md` (12), `rounded-xl` (20), `rounded-full` (999).
 - `StyleSheet.create` is permitted **only** for: dynamic computed values, platform-specific exceptions, rare NativeWind-unsupported cases. Add a brief comment explaining why `className` cannot be used.
 - When migrating existing components: remove all hardcoded hex values, random spacing numbers, and inline radius values — replace with NativeWind classes or token references.
 - Do **not** introduce new token values without adding them to `src/theme/tokens.ts` and `tailwind.config.js` first.
+- **Website consistency**: mobile app must visually match the website theme — same semantic color roles, soft rounded radii, soft shadows only.
 
 ### Components
+
 - Functional only. Named exports only (no `export default`).
 - `React.memo` on list items and computation-heavy subtrees.
 - `useCallback` for functions passed as props. Correct dependency arrays.
@@ -59,19 +69,23 @@ If any of these are missing, **stop and state what is missing**. Do not guess.
 - Every user-facing flow: loading / content / error / empty states.
 
 ### Animations (Reanimated 4)
+
 - Use `useSharedValue` + `useAnimatedStyle` — runs on UI thread.
 - Prefer `withTiming` / `withSpring` for transitions.
 - Never animate via `setState`. Never use `Animated` from react-native (use Reanimated).
 
 ### Navigation
+
 - Type-safe params via `@navigation/types.ts`.
 - Use `NativeStackScreenProps` for screen props.
 
 ### Imports
+
 - **Always** use path aliases: `@/`, `@theme`, `@hooks/*`, `@store/*`, `@types/*`, etc.
 - Never use deep relative paths (`../../..`).
 
 ### File naming
+
 - `PascalCase.tsx` for components and screens.
 - `camelCase.ts` for hooks, utils, domain logic, store slices.
 
@@ -127,32 +141,40 @@ If any of these are missing, **stop and state what is missing**. Do not guess.
 # Implementation Notes: <feature>
 
 ## Summary
+
 What was built (one paragraph).
 
 ## Files changed
 
 ### New
+
 - `path` — purpose
 
 ### Modified
+
 - `path` — what changed
 
 ## Security requirements satisfied
+
 - [ ] MUST-1: description — how addressed
 - [ ] MUST-2: ...
 
 ## How to test
+
 1. Step-by-step manual test
 2. ...
 
 ## Tests added
+
 - `path/to/test` — what it covers
 
 ## Known limitations / follow-ups
+
 - (only if truly needed)
 ```
 
 ### 2. Summary message
+
 Concise: what was implemented, files changed (grouped), how to test.
 
 ---
