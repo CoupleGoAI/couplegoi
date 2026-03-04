@@ -25,7 +25,9 @@
         "backgroundColor": "#FAF5FF"
       },
       "package": "com.couplegoai.app",
-      "permissions": ["CAMERA"]
+      "permissions": [
+        "CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -36,7 +38,8 @@
         {
           "cameraPermission": "Allow CoupleGoAI to access your camera to scan your partner's QR code."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "scheme": "couplegoai",
     "newArchEnabled": true

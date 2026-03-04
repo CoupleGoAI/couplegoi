@@ -64,7 +64,7 @@ src/
   domain/          ← Business rules, pure functions, use-cases
   data/            ← API clients, persistence, realtime adapters
   types/           ← Shared type definitions, discriminated unions
-  theme/           ← Design tokens (colors, typography, spacing, radii, shadows)
+  theme/           ← Design tokens — tokens.ts is the SINGLE source of truth
   navigation/      ← Navigators, route types, deep link config
   utils/           ← Pure helpers (no side-effects)
 ```
@@ -82,7 +82,7 @@ Rules:
 - Domain contains business logic, depends on interfaces — not implementations.
 - Data layer implements interfaces (API clients, persistence, sync).
 - Hooks orchestrate: compose domain + data, expose to UI.
-- No circular imports. No barrel re-exports beyond `theme/index.ts` and `types/index.ts`.
+- No circular imports. No barrel re-exports beyond `types/index.ts`.
 
 ### Zustand patterns
 
@@ -159,11 +159,12 @@ Tone: warm, romantic, premium, modern, slightly playful — never childish. Mini
 
 Visual system (references `src/theme/`):
 
-- All design tokens live in `src/theme/tokens.ts` — single source of truth. No duplicated colors anywhere else.
+- `src/theme/tokens.ts` is the **ONLY theme file** — all colors, radii, spacing, shadows, font families, typography primitives, composed text styles, layout constants, and gradients live here. No other theme file exists.
+- All components must import styling values exclusively from `@/theme/tokens`.
 - Semantic color roles: `background`, `foreground`, `foregroundMuted`, `gray`, `primary`, `primaryLight`, `accent`, `accentLight`, `muted`, `accentSoft`, `borderDefault`.
-- Radii: `radius` (20), `radiusSm` (12), `radiusFull` (999) — always via tokens, never inline values.
-- Typography: `src/theme/typography.ts` — semantic names (`textTitle`, `textBody`, `textCaption`). No ad-hoc font sizes in components.
-- Gradients: pink→lavender, used sparingly on CTAs via `GradientButton`.
+- Radii: `radius` (20), `radiusMd` (16), `radiusSm` (12), `radiusFull` (999) — always via tokens, never inline values.
+- Typography: composed `textStyles` and `fontSize`/`fontWeight`/`fontFamilies` primitives in `tokens.ts`. No ad-hoc font sizes in components.
+- Gradients: pink→lavender (`gradients.brand`), used sparingly on CTAs via `GradientButton`.
 - Pill-shaped CTAs via `GradientButton`. Card-based layout via `Card` component.
 - Generous spacing (`spacing.lg`+), thumb-friendly targets (min 44pt), soft shadows only.
 - Motion: subtle `withTiming`/`withSpring` (scale, fade, slide). Never jarring. Never blocks interaction.
@@ -172,10 +173,8 @@ Visual system (references `src/theme/`):
 
 ## 6 · Feature UX baselines
 
-**Onboarding**: 4–5 screens max. QR generate → scan → confirmed. Minimal tutorial.
-**Home**: 2 primary CTAs (AI Chat, Truth or Dare). Optional: partner status, streak.
-**AI Chat**: Clean, large typography, generous spacing. User/partner visually distinct. AI suggestions. Edit sent message.
-**Truth or Dare**: Categories (romantic/spicy/fun). Card-based, turn-based, real-time sync. Subtle animations.
+**Auth**: Login + Register screens with form validation, gradient backgrounds, branded styling.
+**Post-auth**: Currently a placeholder screen. Features will be added incrementally.
 
 ---
 
@@ -193,8 +192,8 @@ Visual system (references `src/theme/`):
 
 ### Single source of truth
 
-- `src/theme/tokens.ts` — **all** semantic design tokens (colors, radii, spacing, shadows). No color defined anywhere else.
-- `src/theme/typography.ts` — all font families and sizes as semantic names (`textTitle`, `textBody`, `textCaption`, …).
+- `src/theme/tokens.ts` — the **ONLY theme file**. Contains ALL design tokens: colors, gradients, radii, spacing, layout constants, shadows, font families, typography primitives (`fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`), and composed `textStyles`. No other theme file exists.
+- All components must `import { ... } from '@/theme/tokens'` — never from deleted legacy files.
 - `tailwind.config.js` extends these tokens by semantic name:
   `bg-background`, `text-foreground`, `text-foregroundMuted`, `text-gray`,
   `bg-primary`, `bg-primaryLight`, `bg-accent`, `bg-accentLight`,
@@ -217,7 +216,7 @@ Visual system (references `src/theme/`):
 | `accentSoft`      | `#f5eafa`                              |
 | `borderDefault`   | soft neutral derived from `foreground` |
 
-Radii: `radius=20`, `radiusSm=12`, `radiusFull=999`. Spacing: `xs/sm/md/lg/xl`. Shadows: `sm/md/lg` + optional `glowPrimary/glowAccent`.
+Radii: `radius=20`, `radiusMd=16`, `radiusSm=12`, `radiusFull=999`. Spacing: `xs/sm/md/lg/xl/2xl`. Layout: `screenPaddingH/screenPaddingV/cardPadding`. Shadows: `none/sm/md/lg` + optional `glowPrimary/glowAccent`.
 
 ### Website theme consistency (mandatory)
 
@@ -235,13 +234,12 @@ Radii: `radius=20`, `radiusSm=12`, `radiusFull=999`. Spacing: `xs/sm/md/lg/xl`. 
 - `StyleSheet.create` is allowed only for: dynamic computed values, platform-specific exceptions, rare NativeWind-unsupported cases.
 - Ad-hoc font sizes in components are forbidden — use typography tokens.
 
-### Migration order (when refactoring)
+### Enforcement
 
-1. Core primitives: `Screen`, `Card`, `Button`, `Input`, `Text`
-2. Shared UI components
-3. Screens
-
-Do **not** delete existing theme files. Refactor them to import from `tokens.ts`.
+- All legacy theme files (`colors.ts`, `spacing.ts`, `typography.ts`, `index.ts`) have been **deleted**.
+- `tokens.ts` is fully self-contained — it includes font families, composed text styles, layout constants, and gradients.
+- Any new token must be added to `tokens.ts` first, then mapped in `tailwind.config.js`.
+- Code review must reject any import from a non-existent theme file or any hardcoded styling value.
 
 ---
 

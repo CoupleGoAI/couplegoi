@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const PUBLISHABLE_DEFAULT_KEY = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
 /**
  * Custom storage adapter for Supabase using expo-secure-store.
@@ -11,19 +11,19 @@ const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
  * All tokens stay in the secure enclave — never AsyncStorage.
  */
 const ExpoSecureStoreAdapter = {
-  getItem: (key: string): Promise<string | null> =>
-    SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string): Promise<void> =>
-    SecureStore.setItemAsync(key, value),
-  removeItem: (key: string): Promise<void> =>
-    SecureStore.deleteItemAsync(key),
+    getItem: (key: string): Promise<string | null> =>
+        SecureStore.getItemAsync(key),
+    setItem: (key: string, value: string): Promise<void> =>
+        SecureStore.setItemAsync(key, value),
+    removeItem: (key: string): Promise<void> =>
+        SecureStore.deleteItemAsync(key),
 };
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    storage: ExpoSecureStoreAdapter,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
+export const supabase = createClient(SUPABASE_URL, PUBLISHABLE_DEFAULT_KEY, {
+    auth: {
+        storage: ExpoSecureStoreAdapter,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+    },
 });

@@ -139,7 +139,8 @@ import { createClient } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? "";
 
 /**
  * Custom storage adapter for Supabase using expo-secure-store.
@@ -713,14 +714,14 @@ Required in `.env` (not committed) and `app.json` / `eas.json` for builds:
 
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=eyJ...
 ```
 
 These are safe to embed in the client — the anon key is public, and RLS policies protect data. The URL is not secret.
 
 **Do NOT embed the `service_role` key in the client.** Ever.
 
-Add `.env` to `.gitignore`. Provide `.env.example` with placeholder keys.
+Add `.env` to `.gitignore`. Provide `.env.local` with placeholder keys.
 
 ---
 
@@ -843,7 +844,7 @@ Each step is a shippable, testable increment. Steps 1–4 are foundation (no UI)
 | ---- | -------------------------------------------------- | --------------------------------------------------------------------------------- | ---------- |
 | 1    | `package.json`, `babel.config.js`, `tsconfig.json` | Add deps, path aliases `@data`, `@domain`                                         | —          |
 | 2    | `src/types/index.ts`                               | Add `AuthUser`, `AuthSession`, `AuthError`, `AuthResult`, `ValidationResult`      | —          |
-| 3    | `.env`, `.env.example`, `App.tsx`                  | Env vars, URL polyfill import                                                     | 1          |
+| 3    | `.env`, `.env.local`, `App.tsx`                    | Env vars, URL polyfill import                                                     | 1          |
 | 4    | `src/data/supabase.ts`                             | Supabase client singleton with secure store adapter                               | 1, 3       |
 | 5    | `src/data/auth.ts`                                 | Auth data functions (`signUp`, `signIn`, `signOut`, `getSession`, `fetchProfile`) | 2, 4       |
 | 6    | `src/data/apiClient.ts`                            | Typed query helper                                                                | 4          |

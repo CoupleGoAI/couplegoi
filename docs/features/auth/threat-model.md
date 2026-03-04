@@ -19,7 +19,7 @@
 | **Session JSON blob**                                              | SECRET             | `expo-secure-store` (single key `sb-<ref>-auth-token`)       | Until sign-out or expiry                     | Contains both tokens + user metadata. ~1–2 KB                          |
 | **User profile data** (name, avatar, onboarding status, couple_id) | PII                | Supabase `profiles` table; `authStore` (Zustand, in-memory)  | Account lifetime                             | Protected by RLS. No secrets — safe for Zustand                        |
 | **Supabase URL**                                                   | PUBLIC             | Bundled via `EXPO_PUBLIC_SUPABASE_URL`                       | Permanent                                    | Safe for client embedding. Not a secret                                |
-| **Supabase anon key**                                              | PUBLIC             | Bundled via `EXPO_PUBLIC_SUPABASE_ANON_KEY`                  | Permanent                                    | Grants no privilege beyond RLS-gated access. Safe for client           |
+| **Supabase anon key**                                              | PUBLIC             | Bundled via `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`   | Permanent                                    | Grants no privilege beyond RLS-gated access. Safe for client           |
 | **Supabase service_role key**                                      | SECRET / FORBIDDEN | Never on client                                              | N/A                                          | Only in server-side environments. Never bundled, never referenced      |
 | **Validation errors**                                              | NON-SENSITIVE      | In-memory (component state)                                  | Ephemeral                                    | Generic user-facing messages only                                      |
 
@@ -178,7 +178,7 @@ This checklist must be verified before the auth feature is merged.
 ### 5.8 · Environment & build
 
 - [ ] `.env` is in `.gitignore`
-- [ ] `.env.example` contains placeholder values (not real keys)
+- [ ] `.env.local` contains placeholder values (not real keys)
 - [ ] No `service_role` key in any `EXPO_PUBLIC_*` variable
 - [ ] `react-native-url-polyfill/auto` imported at app entry point (before Supabase client)
 - [ ] Grep CI check: no occurrence of `service_role` in `src/` directory

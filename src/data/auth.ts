@@ -64,8 +64,10 @@ export async function signUp(
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) return { ok: false, error: mapAuthError(error) };
-    if (!data.session || !data.user)
-      return { ok: false, error: { code: 'UNKNOWN', message: 'Registration succeeded but no session was returned.' } };
+    if (!data.user)
+      return { ok: false, error: { code: 'UNKNOWN', message: 'Something went wrong. Please try again.' } };
+    if (!data.session)
+      return { ok: false, error: { code: 'EMAIL_CONFIRMATION_REQUIRED', message: 'Check your email and click the confirmation link to activate your account.' } };
 
     return { ok: true, data: mapSession(data.session) };
   } catch {
@@ -112,6 +114,24 @@ export async function getSession(): Promise<AuthResult<AuthSession | null>> {
     if (!data.session) return { ok: true, data: null };
 
     return { ok: true, data: mapSession(data.session) };
+  } catch {
+    return { ok: false, error: { code: 'NETWORK_ERROR', message: 'Network error. Please check your connection.' } };
+  }
+}
+
+/**
+ * Mark onboarding as complete in `public.profiles`.
+ * Called when the user presses "Enter the app" on ConnectionConfirmedScreen.
+ */
+export async function markOnboardingComplete(userId: string): Promise<AuthResult<void>> {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ onboarding_completed: true })
+      .eq('id', userId);
+
+    if (error) return { ok: false, error: mapAuthError(error) };
+    return { ok: true, data: undefined };
   } catch {
     return { ok: false, error: { code: 'NETWORK_ERROR', message: 'Network error. Please check your connection.' } };
   }

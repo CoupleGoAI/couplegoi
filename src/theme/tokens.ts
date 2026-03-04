@@ -1,12 +1,11 @@
 /**
  * CoupleGoAI — Design Tokens (Single Source of Truth)
  *
- * Every color, radius, spacing, shadow, and typography primitive lives here.
- * Other theme files (`colors.ts`, `spacing.ts`, `typography.ts`) must
- * re-export or derive from these tokens — never define raw values themselves.
+ * This is the ONLY theme file. Every color, radius, spacing, shadow,
+ * font family, typography primitive, composed text style, layout constant,
+ * and gradient lives here.
  *
- * NativeWind / `tailwind.config.js` maps these tokens to semantic class names.
- * Components must use `className` with those names, never raw hex or numbers.
+ * Components must import styling values exclusively from this file.
  *
  * STRICT RULES:
  * - No hardcoded hex colors in components.
@@ -15,6 +14,8 @@
  * - Use StyleSheet only for truly dynamic or unsupported styles.
  * - If a new token is needed, add it HERE first, then map in tailwind.config.js.
  */
+
+import { Platform } from 'react-native';
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 export const colors = {
@@ -40,15 +41,23 @@ export const colors = {
     accentSoft: '#f5eafa',
     /** Borders — soft neutral derived from foreground */
     borderDefault: 'rgba(30, 18, 48, 0.12)',
+    /** Light border variant */
+    borderLight: 'rgba(228, 228, 231, 0.4)',
     /** Optional elevated surface tint */
     surface: 'rgba(244, 139, 166, 0.06)',
 
     // ── Functional ──
     success: '#22c55e',
+    successBg: '#dcfce7',
+    successText: '#166534',
     warning: '#f59e0b',
+    warningBg: '#fef9c3',
+    warningText: '#854d0e',
     error: '#ef4444',
     errorBg: 'rgba(239, 68, 68, 0.08)',
     info: '#3b82f6',
+    infoBg: '#dbeafe',
+    infoText: '#1e40af',
 
     // ── Utility ──
     transparent: 'transparent',
@@ -62,13 +71,19 @@ export const gradients = {
     brand: [colors.primary, colors.accent] as [string, string],
     /** Softer brand gradient */
     brandSoft: [colors.primaryLight, colors.accentLight] as [string, string],
+    /** Disabled state gradient */
+    disabled: [colors.gray, colors.foregroundMuted] as [string, string],
+    /** Hero / wash background: accentSoft → muted → background */
+    heroWash: [colors.accentSoft, colors.muted, colors.background] as [string, string, string],
 };
 
 // ─── Radii ───────────────────────────────────────────────────────────────────
 export const radii = {
     /** Standard card / surface radius */
     radius: 20,
-    /** Smaller elements — inputs, badges, chips */
+    /** Medium elements — inputs, panels */
+    radiusMd: 16,
+    /** Smaller elements — badges, chips, error banners */
     radiusSm: 12,
     /** Pill / fully rounded */
     radiusFull: 999,
@@ -90,8 +105,33 @@ export const spacing = {
     '2xl': 32,
 } as const;
 
+// ─── Layout Constants ────────────────────────────────────────────────────────
+export const layout = {
+    /** 20px — horizontal screen padding */
+    screenPaddingH: 20,
+    /** 24px — vertical screen padding */
+    screenPaddingV: 24,
+    /** 20px — default card inner padding */
+    cardPadding: 20,
+    /** 40px — between major sections */
+    sectionGap: 40,
+    /** 16px — between list items */
+    itemGap: 16,
+    /** 56px — standard header height */
+    headerHeight: 56,
+    /** 48px — WCAG minimum tap target */
+    minTapTarget: 48,
+} as const;
+
 // ─── Shadows (React Native style objects) ────────────────────────────────────
 export const shadows = {
+    none: {
+        shadowColor: 'transparent',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
+    },
     sm: {
         shadowColor: colors.foreground,
         shadowOffset: { width: 0, height: 1 },
@@ -129,7 +169,16 @@ export const shadows = {
     },
 } as const;
 
-// ─── Typography primitives ───────────────────────────────────────────────────
+// ─── Font Families ───────────────────────────────────────────────────────────
+export const fontFamilies = {
+    serif: Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' }),
+    serifBold: Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' }),
+    sans: Platform.select({ ios: '-apple-system', android: 'Roboto', default: 'System' }),
+    sansBold: Platform.select({ ios: '-apple-system', android: 'Roboto', default: 'System' }),
+    mono: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
+} as const;
+
+// ─── Typography Primitives ───────────────────────────────────────────────────
 export const typographyTokens = {
     /** Semantic font size scale */
     fontSize: {
@@ -159,8 +208,115 @@ export const typographyTokens = {
     letterSpacing: {
         tight: -0.5,
         normal: 0,
+        subtle: 0.3,
         wide: 0.5,
         wider: 1,
+        widest: 2,
+    },
+} as const;
+
+// ─── Convenience re-exports from typography primitives ───────────────────────
+export const fontSize = typographyTokens.fontSize;
+export const fontWeight = typographyTokens.fontWeight;
+export const lineHeight = typographyTokens.lineHeight;
+export const letterSpacing = typographyTokens.letterSpacing;
+
+// ─── Composed Text Styles ────────────────────────────────────────────────────
+export const textStyles = {
+    displayLg: {
+        fontFamily: fontFamilies.serifBold,
+        fontSize: fontSize['5xl'],
+        fontWeight: fontWeight.bold,
+        lineHeight: fontSize['5xl'] * lineHeight.tight,
+        letterSpacing: letterSpacing.tight,
+    },
+    displayMd: {
+        fontFamily: fontFamilies.serifBold,
+        fontSize: fontSize['4xl'],
+        fontWeight: fontWeight.bold,
+        lineHeight: fontSize['4xl'] * lineHeight.tight,
+        letterSpacing: letterSpacing.tight,
+    },
+    displaySm: {
+        fontFamily: fontFamilies.serifBold,
+        fontSize: fontSize['3xl'],
+        fontWeight: fontWeight.bold,
+        lineHeight: fontSize['3xl'] * lineHeight.snug,
+        letterSpacing: letterSpacing.tight,
+    },
+    h1: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize['2xl'],
+        fontWeight: fontWeight.bold,
+        lineHeight: fontSize['2xl'] * lineHeight.snug,
+    },
+    h2: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.xl,
+        fontWeight: fontWeight.semibold,
+        lineHeight: fontSize.xl * lineHeight.snug,
+    },
+    h3: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.lg,
+        fontWeight: fontWeight.semibold,
+        lineHeight: fontSize.lg * lineHeight.normal,
+    },
+    bodyLg: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.md,
+        fontWeight: fontWeight.regular,
+        lineHeight: fontSize.md * lineHeight.relaxed,
+    },
+    bodyMd: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.base,
+        fontWeight: fontWeight.regular,
+        lineHeight: fontSize.base * lineHeight.normal,
+    },
+    bodySm: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.sm,
+        fontWeight: fontWeight.regular,
+        lineHeight: fontSize.sm * lineHeight.normal,
+    },
+    labelMd: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.sm,
+        fontWeight: fontWeight.semibold,
+        letterSpacing: letterSpacing.wider,
+        textTransform: 'uppercase' as const,
+    },
+    labelSm: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.xs,
+        fontWeight: fontWeight.semibold,
+        letterSpacing: letterSpacing.widest,
+        textTransform: 'uppercase' as const,
+    },
+    caption: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.xs,
+        fontWeight: fontWeight.regular,
+        lineHeight: fontSize.xs * lineHeight.normal,
+    },
+    btnLg: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.md,
+        fontWeight: fontWeight.semibold,
+        letterSpacing: letterSpacing.wide,
+    },
+    btnMd: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.base,
+        fontWeight: fontWeight.semibold,
+        letterSpacing: letterSpacing.wide,
+    },
+    btnSm: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.sm,
+        fontWeight: fontWeight.semibold,
+        letterSpacing: letterSpacing.wide,
     },
 } as const;
 
@@ -170,8 +326,11 @@ export const tokens = {
     gradients,
     radii,
     spacing,
+    layout,
     shadows,
+    fontFamilies,
     typography: typographyTokens,
+    textStyles,
 } as const;
 
 export type Tokens = typeof tokens;

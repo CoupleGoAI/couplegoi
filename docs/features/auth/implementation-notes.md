@@ -18,7 +18,7 @@ Email/password authentication using Supabase Auth, with persistent sessions stor
 - `src/screens/auth/RegisterScreen.tsx` — Email + password + confirm registration form
 - `src/screens/auth/SplashScreen.tsx` — Minimal loading screen during session restore
 - `src/navigation/AuthNavigator.tsx` — Stack navigator (Login ↔ Register)
-- `.env.example` — Placeholder Supabase env vars
+- `.env.local` — Placeholder Supabase env vars
 
 ### Modified
 
@@ -66,7 +66,7 @@ Email/password authentication using Supabase Auth, with persistent sessions stor
 2. Create `.env` file with your Supabase project credentials:
    ```
    EXPO_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=eyJ...
    ```
 3. Ensure Supabase project has:
    - Email auth enabled (Dashboard → Auth → Settings)
