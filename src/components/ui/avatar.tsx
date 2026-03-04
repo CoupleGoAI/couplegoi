@@ -1,38 +1,153 @@
-import * as React from "react";
-import * as AvatarPrimitive from "@radix-ui/react-avatar";
+import React from 'react';
+import { View, Text, Image, StyleSheet, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { palette, gradients } from '../../theme/colors';
+import { radii } from '../../theme/spacing';
+import { fontFamilies, fontWeight } from '../../theme/typography';
 
-import { cn } from "@/lib/utils";
+type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
-const Avatar = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Root
-    ref={ref}
-    className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full", className)}
-    {...props}
-  />
-));
-Avatar.displayName = AvatarPrimitive.Root.displayName;
+interface AvatarProps {
+  name?: string;
+  uri?: string;
+  size?: AvatarSize;
+  gradient?: boolean;
+  style?: ViewStyle;
+  showOnline?: boolean;
+  isOnline?: boolean;
+}
 
-const AvatarImage = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Image>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Image ref={ref} className={cn("aspect-square h-full w-full", className)} {...props} />
-));
-AvatarImage.displayName = AvatarPrimitive.Image.displayName;
+const SIZES: Record<AvatarSize, { container: number; font: number; indicator: number }> = {
+  xs: { container: 28, font: 11, indicator: 8 },
+  sm: { container: 36, font: 13, indicator: 10 },
+  md: { container: 44, font: 16, indicator: 12 },
+  lg: { container: 56, font: 20, indicator: 14 },
+  xl: { container: 72, font: 26, indicator: 16 },
+};
 
-const AvatarFallback = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Fallback>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Fallback
-    ref={ref}
-    className={cn("flex h-full w-full items-center justify-center rounded-full bg-muted", className)}
-    {...props}
-  />
-));
-AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
+export default function Avatar({
+  name,
+  uri,
+  size = 'md',
+  gradient = false,
+  style,
+  showOnline = false,
+  isOnline = false,
+}: AvatarProps) {
+  const sizeConfig = SIZES[size];
+  const initials = name
+    ? name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : '?';
 
-export { Avatar, AvatarImage, AvatarFallback };
+  const containerStyle = {
+    width: sizeConfig.container,
+    height: sizeConfig.container,
+    borderRadius: sizeConfig.container / 2,
+  };
+
+  if (uri) {
+    return (
+      <View style={[styles.wrapper, style]}>
+        <Image source={{ uri }} style={[styles.image, containerStyle]} />
+        {showOnline && (
+          <View
+            style={[
+              styles.indicator,
+              {
+                width: sizeConfig.indicator,
+                height: sizeConfig.indicator,
+                borderRadius: sizeConfig.indicator / 2,
+                backgroundColor: isOnline ? palette.success : palette.gray400,
+              },
+            ]}
+          />
+        )}
+      </View>
+    );
+  }
+
+  if (gradient) {
+    return (
+      <View style={[styles.wrapper, style]}>
+        <LinearGradient
+          colors={gradients.brand as any}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.fallback, containerStyle]}
+        >
+          <Text style={[styles.initials, { fontSize: sizeConfig.font }]}>{initials}</Text>
+        </LinearGradient>
+        {showOnline && (
+          <View
+            style={[
+              styles.indicator,
+              {
+                width: sizeConfig.indicator,
+                height: sizeConfig.indicator,
+                borderRadius: sizeConfig.indicator / 2,
+                backgroundColor: isOnline ? palette.success : palette.gray400,
+              },
+            ]}
+          />
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.wrapper, style]}>
+      <View style={[styles.fallback, styles.fallbackSolid, containerStyle]}>
+        <Text style={[styles.initials, { fontSize: sizeConfig.font, color: palette.lavender700 }]}>
+          {initials}
+        </Text>
+      </View>
+      {showOnline && (
+        <View
+          style={[
+            styles.indicator,
+            {
+              width: sizeConfig.indicator,
+              height: sizeConfig.indicator,
+              borderRadius: sizeConfig.indicator / 2,
+              backgroundColor: isOnline ? palette.success : palette.gray400,
+            },
+          ]}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrapper: {
+    position: 'relative',
+  },
+  image: {
+    resizeMode: 'cover',
+  },
+  fallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  fallbackSolid: {
+    backgroundColor: palette.lavender100,
+  },
+  initials: {
+    fontFamily: fontFamilies.sans,
+    fontWeight: fontWeight.bold,
+    color: palette.white,
+  },
+  indicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    borderWidth: 2,
+    borderColor: palette.white,
+  },
+});
