@@ -99,6 +99,16 @@ Short, enforceable list for the Implementer to check off:
 
 ---
 
+## Styling-specific security consideration
+
+Dynamic `className` construction via string interpolation or runtime concatenation can introduce XSS-like risks in web contexts and obscure intent in React Native. Enforce:
+
+- **MUST-NOT**: Never build `className` strings from untrusted user input (e.g., user-provided theme names, server-driven style values). Style values from external sources must be validated and mapped to a whitelist of known tokens before use.
+- **SHOULD**: Prefer static, compile-time className strings. If conditional classes are needed, use an explicit map (e.g., `const cls = condition ? 'bg-primary' : 'bg-muted'`) — never template literals with unvalidated interpolations.
+- Include in the secure implementation checklist: `- [ ] No className values constructed from untrusted input`.
+
+---
+
 ## Mobile-specific threat surface (always consider)
 
 - **Secrets in logs**: `console.log`, `console.warn`, crash reporters (Sentry, etc.)

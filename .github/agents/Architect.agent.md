@@ -116,6 +116,18 @@ Summary of security-sensitive areas (detailed analysis deferred to Security agen
 
 ---
 
+## Styling architecture (enforced)
+
+- `src/theme/tokens.ts` is the **single source of truth** for all design tokens. No color, radius, or shadow may be defined anywhere else.
+- `src/theme/typography.ts` owns all font families and sizes as semantic names.
+- `tailwind.config.js` must extend tokens by semantic name. Document the exact Tailwind class name that maps to each token in the plan (e.g., `bg-background` → `tokens.colors.background`).
+- When planning UI files, specify the NativeWind `className` strings to use — not raw values.
+- `StyleSheet.create` is allowed **only** for dynamic computed values, platform-specific exceptions, or NativeWind-unsupported edge cases. Call this out explicitly when used.
+- Do **not** invent new colors or radii. If a new token is truly needed, add it to `tokens.ts` and map it in `tailwind.config.js` — document this in the plan.
+- Ensure no duplication: check `src/theme/` before declaring a new token.
+
+---
+
 ## Architecture rules (from copilot-instructions.md — enforced)
 
 - **UI never calls** fetch/storage/realtime directly

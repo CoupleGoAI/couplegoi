@@ -14,7 +14,7 @@ You are pair-coding on **CoupleGoAI**: a premium Gen Z couples mobile app.
 | Navigation | React Navigation 6 (native-stack + bottom-tabs) |
 | State | Zustand 5 — thin slices, selectors, no providers |
 | Animation | Reanimated 4 + Gesture Handler 2 (worklet-first) |
-| Styling | StyleSheet.create — co-located, no runtime overhead |
+| Styling | NativeWind 4 (primary) · StyleSheet.create (dynamic/exceptions only) |
 | Assets | expo-linear-gradient · expo-blur · @expo/vector-icons |
 | QR | react-native-qrcode-svg + expo-camera |
 | Haptics | expo-haptics |
@@ -101,7 +101,8 @@ const value = useXStore((s) => s.value);
 // Functional only. No class components. No default exports.
 export const MyComponent: React.FC<Props> = React.memo(({ ... }) => { ... });
 
-// Co-locate styles at bottom of file
+// Use NativeWind className for all static styling
+// StyleSheet.create only for dynamic computed values, platform exceptions, or rare unsupported cases
 const styles = StyleSheet.create({ ... });
 ```
 
@@ -156,11 +157,13 @@ If a security requirement conflicts with a feature constraint, **stop and propos
 Tone: warm, romantic, premium, modern, slightly playful — never childish. Minimal cognitive load.
 
 Visual system (references `src/theme/`):
-- Pastel blush/lavender backgrounds from `palette.pink50`–`pink100`, `lavender50`–`lavender100`
-- Gradients: `gradients.primary` (pink→lavender), used sparingly on CTAs
-- Editorial serif for emotional headings (`fontFamilies.serif`), clean sans for body (`fontFamilies.sans`)
+- All design tokens live in `src/theme/tokens.ts` — single source of truth. No duplicated colors anywhere else.
+- Semantic color roles: `background`, `foreground`, `foregroundMuted`, `gray`, `primary`, `primaryLight`, `accent`, `accentLight`, `muted`, `accentSoft`, `borderDefault`.
+- Radii: `radius` (20), `radiusSm` (12), `radiusFull` (999) — always via tokens, never inline values.
+- Typography: `src/theme/typography.ts` — semantic names (`textTitle`, `textBody`, `textCaption`). No ad-hoc font sizes in components.
+- Gradients: pink→lavender, used sparingly on CTAs via `GradientButton`.
 - Pill-shaped CTAs via `GradientButton`. Card-based layout via `Card` component.
-- Generous spacing (`spacing.lg`+), thumb-friendly targets (min 44pt), soft corners (`radii.lg`+)
+- Generous spacing (`spacing.lg`+), thumb-friendly targets (min 44pt), soft shadows only.
 - Motion: subtle `withTiming`/`withSpring` (scale, fade, slide). Never jarring. Never blocks interaction.
 
 ---
@@ -184,7 +187,51 @@ Visual system (references `src/theme/`):
 
 ---
 
-## 8 · Output expectations (every meaningful change)
+## 8 · Unified styling strategy (enforced — no exceptions)
+
+### Single source of truth
+
+- `src/theme/tokens.ts` — **all** semantic design tokens (colors, radii, spacing, shadows). No color defined anywhere else.
+- `src/theme/typography.ts` — all font families and sizes as semantic names (`textTitle`, `textBody`, `textCaption`, …).
+- `tailwind.config.js` extends these tokens by semantic name (`bg-background`, `text-foreground`, `bg-primary`, `border-default`, `rounded-md`, `rounded-xl`, `rounded-full`, …).
+
+### Token palette (canonical)
+
+| Token | Value |
+|-------|-------|
+| `background` | `#ffffff` |
+| `foreground` | `#1e1230` |
+| `foregroundMuted` | `#42335a` |
+| `gray` | `#8a7b9e` |
+| `primary` | `#f48ba6` |
+| `primaryLight` | `#f9b5c8` |
+| `accent` | `#cc7be8` |
+| `accentLight` | `#dda8f0` |
+| `muted` | `#fef0f4` |
+| `accentSoft` | `#f5eafa` |
+| `borderDefault` | soft neutral derived from `foreground` |
+
+Radii: `radius=20`, `radiusSm=12`, `radiusFull=999`. Spacing: `xs/sm/md/lg/xl`. Shadows: `sm/md/lg` + optional `glowPrimary/glowAccent`.
+
+### Styling rules (strict)
+
+- **All new UI uses `className`** (NativeWind) with semantic Tailwind names.
+- **Hardcoded hex values in components are forbidden.**
+- **Arbitrary spacing numbers and inline border-radius values are forbidden.**
+- `StyleSheet.create` is allowed only for: dynamic computed values, platform-specific exceptions, rare NativeWind-unsupported cases.
+- Ad-hoc font sizes in components are forbidden — use typography tokens.
+
+### Migration order (when refactoring)
+
+1. Core primitives: `Screen`, `Card`, `Button`, `Input`, `Text`
+2. Shared UI components
+3. Screens
+
+Do **not** delete existing theme files. Refactor them to import from `tokens.ts`.
+
+---
+
+## 9 · Output expectations (every meaningful change)
 
 1. **What** changed and **why** (one sentence)
 2. **Files** changed (grouped by layer)

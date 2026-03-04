@@ -31,7 +31,20 @@ You are accountable for production quality. You block anything that compromises 
 - No unhandled async/promises
 - Proper TypeScript: zero `any`, zero `@ts-ignore`, correct generics
 
-### 2. Architecture boundaries
+### 2. Styling (NativeWind + tokens — blocking)
+
+This section is **P0-eligible**. Any violation below is a blocker.
+
+- No raw hex color values in components — all colors must come from `src/theme/tokens.ts` via NativeWind semantic classes (`bg-background`, `text-foreground`, `bg-primary`, etc.).
+- No arbitrary spacing numbers or inline border-radius values — use token-mapped Tailwind classes or `tokens.spacing`/`tokens.radii`.
+- No duplicate token definitions outside `src/theme/tokens.ts` or `src/theme/typography.ts`.
+- `StyleSheet.create` used only for dynamic computed values, platform-specific exceptions, or NativeWind-unsupported cases. If present, a comment must justify it.
+- No ad-hoc font sizes — typography must use semantic names from `src/theme/typography.ts`.
+- `tailwind.config.js` must map any new token added to `tokens.ts`.
+
+Approve only when all styling routes through semantic tokens.
+
+### 3. Architecture boundaries
 - UI → hooks → domain → data. No shortcuts.
 - No business logic in screens/components
 - No direct fetch/storage calls from UI
@@ -40,7 +53,7 @@ You are accountable for production quality. You block anything that compromises 
 - Zustand: thin slices, selectors used (not whole-store destructuring)
 - Imports use path aliases, no deep relative paths
 
-### 3. Security & privacy (from threat-model.md)
+### 4. Security & privacy (from threat-model.md)
 - **Every MUST** requirement in threat-model.md addressed
 - No token/PII logging (`console.log`, crash reporters)
 - Secrets in `expo-secure-store`, not AsyncStorage
@@ -49,27 +62,27 @@ You are accountable for production quality. You block anything that compromises 
 - Safe error messages (no stack traces, internal IDs, token fragments)
 - Real-time sync treated as untrusted: shape validation, turn ownership, room checks
 
-### 4. Reliability
+### 5. Reliability
 - Typed error handling (`Result<T, E>` or discriminated unions)
 - Network: timeouts, retries only for idempotent operations
 - User-facing states: loading / content / error / empty — all present
 - ErrorBoundary at screen level
 
-### 5. Performance (React Native specific)
+### 6. Performance (React Native specific)
 - `React.memo` on list items and expensive subtrees
 - `useCallback` with correct deps for prop-passed functions
 - FlatList with `keyExtractor`, `getItemLayout` where applicable
 - Animations via Reanimated (UI thread), not `setState`
 - No JS thread blocking
 
-### 6. Tests
+### 7. Tests
 - Domain logic covered (pure functions, use-cases)
 - Security-critical paths tested (no token logging, input validation)
 - No flaky test patterns (no timers, no network in unit tests)
 - Test naming follows `describe/it` with behavior descriptions
 - Test seams for future e2e
 
-### 7. Code quality
+### 8. Code quality
 - Clean, readable, consistent style
 - Small functions (<30 lines preferred)
 - No dead code, no commented-out code
@@ -77,7 +90,7 @@ You are accountable for production quality. You block anything that compromises 
 - No premature abstraction
 - Minimal diff — no changes outside feature scope
 
-### 8. Documentation
+### 9. Documentation
 - `implementation-notes.md` exists with: summary, files changed, security checklist, test steps
 - Plan deviations documented with rationale
 
@@ -107,6 +120,7 @@ You are accountable for production quality. You block anything that compromises 
 - [ ] plan.md architecture boundaries
 - [ ] threat-model.md MUST requirements
 - [ ] copilot-instructions.md patterns
+- [ ] Styling: no raw hex, no arbitrary spacing, all tokens from tokens.ts, NativeWind className used
 
 ## Notes
 <optional — follow-up suggestions, kudos, observations>

@@ -8,29 +8,19 @@ agents: ["Architect", "Security", "Implementer", "Reviewer"]
 handoffs:
   - label: 1) Architect → plan.md
     agent: Architect
-    prompt: |
-      Read docs/features/<feature>/spec.md and existing src/ patterns.
-      Produce docs/features/<feature>/plan.md following .github/copilot-instructions.md arch rules.
-      Output only the plan. No implementation.
+    prompt: "Read docs/features/<feature>/spec.md and existing src/ patterns. Produce docs/features/<feature>/plan.md following .github/copilot-instructions.md arch rules. Output only the plan. No implementation."
     send: false
   - label: 2) Security → threat-model.md
     agent: Security
-    prompt: |
-      Read docs/features/<feature>/spec.md + plan.md.
-      Produce docs/features/<feature>/threat-model.md.
-      Mobile-specific threats. Concrete MUST/SHOULD/MUST-NOT list. No implementation.
+    prompt: "Read docs/features/<feature>/spec.md + plan.md. Produce docs/features/<feature>/threat-model.md. Mobile-specific threats. Concrete MUST/SHOULD/MUST-NOT list. No implementation."
     send: false
   - label: 3) Implementer → Build feature
     agent: Implementer
-    prompt: |
-      Read plan.md + threat-model.md. Implement with tests.
-      Write docs/features/<feature>/implementation-notes.md when done.
+    prompt: "Read plan.md + threat-model.md. Implement with tests. Write docs/features/<feature>/implementation-notes.md when done."
     send: false
   - label: 4) Reviewer → Review
     agent: Reviewer
-    prompt: |
-      Review implementation against spec.md, plan.md, threat-model.md.
-      Write docs/features/<feature>/review.md with P0/P1/P2 findings.
+    prompt: "Review implementation against spec.md, plan.md, threat-model.md. Write docs/features/<feature>/review.md with P0/P1/P2 findings."
     send: false
 ---
 
@@ -83,6 +73,18 @@ Ownership:
 | Security | threat analysis | threat-model.md |
 | Implementer | code + tests | implementation-notes.md |
 | Reviewer | quality gate | review.md |
+
+---
+
+## Styling enforcement (mandatory at every gate)
+
+Any feature that touches UI must route all design decisions through `src/theme/tokens.ts` and NativeWind semantic classes. **Reject** plans or implementations that:
+- Introduce raw hex color values in components
+- Define ad-hoc spacing numbers or inline border-radius values
+- Duplicate token definitions outside `tokens.ts`
+- Use `StyleSheet.create` for cases NativeWind handles
+
+If the Architect's plan includes ad-hoc styling, send it back. If the Implementer's diff includes raw hex or random spacing, block at G4. State the exact token name the contributor should use instead.
 
 ---
 

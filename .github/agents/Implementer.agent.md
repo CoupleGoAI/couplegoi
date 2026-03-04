@@ -43,6 +43,14 @@ If any of these are missing, **stop and state what is missing**. Do not guess.
 - Always use selectors: `useXStore((s) => s.field)` — never spread the whole store.
 - Reset sensitive state on logout via `reset()` action.
 
+### Styling (NativeWind + tokens — enforced)
+- **All static styling via `className`** (NativeWind). No hardcoded hex values. No raw spacing numbers. No inline border-radius values.
+- Import colors/radii/spacing **only** from `src/theme/tokens.ts`. Import typography from `src/theme/typography.ts`.
+- Use semantic Tailwind class names (`bg-background`, `text-foreground`, `bg-primary`, `border-default`, `rounded-xl`, `rounded-full`, etc.) as defined in `tailwind.config.js`.
+- `StyleSheet.create` is permitted **only** for: dynamic computed values, platform-specific exceptions, rare NativeWind-unsupported cases. Add a brief comment explaining why `className` cannot be used.
+- When migrating existing components: remove all hardcoded hex values, random spacing numbers, and inline radius values — replace with NativeWind classes or token references.
+- Do **not** introduce new token values without adding them to `src/theme/tokens.ts` and `tailwind.config.js` first.
+
 ### Components
 - Functional only. Named exports only (no `export default`).
 - `React.memo` on list items and computation-heavy subtrees.
