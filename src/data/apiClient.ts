@@ -21,19 +21,36 @@ export async function supabaseQuery<T>(
 /**
  * Typed wrapper for Supabase Edge Function invocations.
  *
- * - Uses `supabase.functions.invoke()` which automatically attaches the
- *   session's Bearer token and routes to the correct Supabase project URL.
+ * Explicitly retrieves the current session's access token and passes it
+ * in the Authorization header. This avoids a React Native edge case where
+ * `supabase.functions.invoke()` may fall back to the anon key when the
+ * in-memory session hasn't been populated yet (e.g. SecureStore restore in
+ * flight), which causes the edge function to return 401.
+ *
  * - Returns a discriminated Result<T, string> — never throws.
- * - SECURITY: tokens are managed internally by supabase-js; never logged.
- *   Only generic error messages surface to the caller.
+ * - SECURITY: tokens are never logged; only generic error messages surface.
  */
 export async function invokeEdgeFunction<T>(
   functionName: string,
   body?: Record<string, unknown>,
 ): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
   try {
+    // Explicitly retrieve the session so we can attach the JWT ourselves.
+    // supabase.functions.invoke() would normally do this internally, but in
+    // React Native the in-memory session may not yet be populated when the
+    // async SecureStore restore is still in progress — in that case supabase-js
+    // silently falls back to the anon key, which the edge function rejects (401).
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError || !sessionData.session?.access_token) {
+      return { ok: false, error: 'Session expired. Please sign in again.' };
+    }
+
     const { data, error } = await supabase.functions.invoke(functionName, {
       body: body ?? {},
+      headers: {
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
     });
 
     if (error) {

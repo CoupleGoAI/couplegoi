@@ -8,8 +8,7 @@
 // Resumable: current step is derived from profile columns, not message count.
 // =============================================================================
 
-import "@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 
@@ -297,12 +296,10 @@ Deno.serve(async (req) => {
 
   try {
     // ── 1. Authenticate ────────────────────────────────────────────────────
-    // CHANGE: accept Authorization header robustly and enforce Bearer token.
-    const authHeader =
-      req.headers.get("authorization") ?? req.headers.get("Authorization");
+    const authHeader = req.headers.get("Authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return json({ error: "Missing/invalid Authorization Bearer token" }, 401);
+      return json({ error: "Missing auth token" }, 401);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
