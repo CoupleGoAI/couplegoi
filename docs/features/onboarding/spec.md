@@ -1,53 +1,158 @@
-# Feature: AI Onboarding
+## Feature: Onboarding Chat (Deterministic, No AI)
 
-## What
+### What
 
-After first login (when `onboarding_completed === false`), user is dropped into an AI chat that collects basic profile info through a conversational flow. Cannot be skipped. AI asks ~5 short questions one at a time: first name, age range, and 2-3 simple personality/relationship questions. On completion, backend sets `onboarding_completed = true` and user gets full app access.
+After first login (when `onboarding_completed === false`), the user is dropped into an onboarding **chat** that collects a small set of basic profile fields through a conversational flow. **Cannot be skipped.** The “assistant” is **not an LLM** — it is a deterministic state machine in the `onboarding-chat` Edge Function that:
 
-This is NOT a form — it's a chat interface. The AI sends a message, user replies, AI validates and moves to the next question or re-asks if the answer is empty/irrelevant.
+- sends predefined assistant messages (warm, playful tone)
+- validates user replies (empty/irrelevant → friendly re-ask)
+- persists messages + extracted structured fields
+- completes onboarding by setting `profiles.onboarding_completed = true`
 
-### Screens
+This is **not a form**. UI stays as chat.
 
-- **OnboardingChatScreen** — full-screen chat UI, no tabs visible, no back button, no skip
-- Reuses the same chat bubble components that will be used in the main AI Chat feature
+---
+
+## Questions (4 total)
+
+Asked one at a time, in this order:
+
+1. **First name**
+2. **Birth date** (user can type in various formats; we normalize)
+3. **Dating start date** (same: user can type various formats; normalize)
+4. **What kind of help do you want?** (single select / strict taxonomy)
+
+**Help options (canonical values):**
+
+- `communication`
+- `conflict`
+- `trust`
+- `emotional_connection`
+- `intimacy`
+- `other`
+
+---
+
+## Screens
+
+- **OnboardingChatScreen** — full-screen chat UI, no tabs, no back, no skip
+- Reuses the same chat bubble components as the main AI chat feature
 - After completion: navigate to partner connection flow (GenerateQR/ScanQR) or Main tabs
 
-### Flow
+(UI unchanged.)
 
-1. AI greets user → asks first name
-2. User responds → AI validates (non-empty, looks like a name) → asks age range
-3. User responds → AI validates (reasonable range like "20s", "25", "18-24") → asks personality Q1
-4. Continue until all questions answered
-5. On final answer → edge function sets `onboarding_completed = true` → navigate forward
+---
 
-### Data access (Supabase-native — no REST endpoints)
+## Flow
 
-| Operation          | Method                                        | Notes                                                 |
-| ------------------ | --------------------------------------------- | ----------------------------------------------------- |
-| Check status       | Direct DB query on `profiles` + `messages`    | Read `onboarding_completed` from profiles; count user messages to derive current question index |
-| Send message to AI | Edge function: `onboarding-chat`              | Handles AI processing, question validation, message persistence. Input: `{ message }`. Output: `{ reply, questionIndex, isComplete }` |
-| Fetch history      | Direct DB query on `messages`                 | `conversation_type = 'onboarding'`, ordered by `created_at`. Used to resume mid-onboarding sessions |
+1. Assistant greets user → asks first name
+2. User replies → validate name → ask birth date
+3. User replies → parse/validate birth date → ask dating start date
+4. User replies → parse/validate dating start date → ask help type
+5. User replies → validate option → function sets `onboarding_completed=true` → navigate forward
 
-The `onboarding-chat` edge function manages the AI conversation and question state. Client just sends user messages and renders AI replies.
+If an answer is empty/invalid, assistant re-asks the same question with a friendly hint.
 
-### State
+---
 
-- `onboardingStore` (Zustand slice): `messages[]`, `isComplete`, `currentQuestion`, `isLoading`
-- On completion, update user profile in `authStore`
+## Data access (Supabase-native — no REST endpoints)
+
+| Operation     | Method                           | Notes                                                     |
+| ------------- | -------------------------------- | --------------------------------------------------------- |
+| Check status  | Direct DB query on `profiles`    | Read `onboarding_completed`                               |
+| Fetch history | Direct DB query on `messages`    | `conversation_type='onboarding'`, ordered by `created_at` |
+| Send message  | Edge function: `onboarding-chat` | Deterministic logic + validation + persistence            |
+
+### `onboarding-chat` Edge Function contract
+
+**Input:** `{ message?: string }`
+
+- If `message` is omitted/empty → function returns the current assistant question (resume/start).
+- If `message` exists → function validates it against current question, persists it, and returns next assistant message.
+
+**Output:** `{ reply, questionIndex, isComplete }`
+
+- `reply: string` — assistant message to display next (question or re-ask)
+- `questionIndex: number` — 0..3 (current question after processing)
+- `isComplete: boolean` — true only when onboarding is finished
+
+---
+
+## State / progress
+
+- Progress indicator uses `questionIndex` (e.g. “2 of 4”)
+- On completion, client updates `authStore` (refresh profile or just set local state) and navigates forward.
+
+---
+
+## Backend responsibilities (no AI)
+
+The `onboarding-chat` Edge Function is the single source of truth for:
+
+- current onboarding step (derived from persisted state, resumable)
+- assistant prompts (predefined strings per step, warm Gen Z tone)
+- deterministic validation and normalization
+- storing both chat history and structured fields
+
+### Validation & normalization rules
+
+**1) First name**
+
+- trimmed, 2–50 chars
+- letters/spaces/`'`/`-` only (reject numbers/emojis)
+- on fail → re-ask with hint (“Just your first name 😊”)
+
+**2) Birth date**
+
+- parse free-form input into a date using `chrono-node`
+- normalize and store as `YYYY-MM-DD`
+- must be in the past
+- optional sanity: derived age within a reasonable range (e.g. 16–110)
+- on fail → re-ask with examples (“Try: 1997-03-12 or 12 March 1997”)
+
+**3) Dating start date**
+
+- parse with `chrono-node`
+- normalize/store as `YYYY-MM-DD`
+- must be in the past
+- must be after birth date (basic sanity)
+- on fail → re-ask with examples
+
+**4) Help type**
+
+- must match the canonical set:
+  `communication | conflict | trust | emotional_connection | intimacy | other`
+- (UI may present buttons; backend still validates strictly)
+- on fail → re-ask and list options
+
+### Persistence targets
+
+- Store chat messages in `messages` with `conversation_type='onboarding'`
+- Store extracted fields in `profiles`:
+  - `name`
+  - `birth_date` (if column exists; add if missing)
+  - `dating_start_date` (add column if missing)
+  - `onboarding_completed` set true at the end
+  - optionally `help_focus` (text enum)
+
+Resumability: function derives current step from stored session state and/or stored profile fields + onboarding messages.
+
+---
 
 ## Done when
 
 - [ ] After first login, user enters onboarding chat automatically
-- [ ] AI asks ~5 questions conversationally (not a form)
-- [ ] Empty/irrelevant answers get a friendly re-ask
+- [ ] Assistant asks 4 questions conversationally (not a form)
+- [ ] Empty/invalid answers get a friendly re-ask
 - [ ] Onboarding cannot be skipped or backed out of
-- [ ] On completion, user profile is saved and app navigates to main flow
-- [ ] Resumable — if user kills app mid-onboarding, resumes where they left off
+- [ ] On completion, profile fields are saved and `onboarding_completed=true`
+- [ ] Resumable — if user kills app mid-onboarding, resumes at the right step
+
+---
 
 ## Notes
 
-- Chat UI should match the main AI Chat feature (shared components)
-- Progress indicator (subtle, e.g. "2 of 5" or small dots) so user knows how far along
-- Personality questions should feel casual: "Are you more of a planner or spontaneous type?" not "Rate your openness 1-10"
-- Keep the AI tone warm, playful, Gen Z — match the brand
-- The onboarding questions and validation logic live on the backend (edge function) — client is a thin chat shell
+- Keep assistant tone warm, playful, Gen Z
+- Keep questions short and one at a time
+- Backend owns validation/normalization; client is a thin chat shell
+- No LLM calls anywhere in onboarding
