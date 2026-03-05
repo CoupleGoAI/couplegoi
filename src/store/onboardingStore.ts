@@ -13,7 +13,7 @@ export interface OnboardingMessage {
 interface OnboardingState {
   messages: OnboardingMessage[];
   isComplete: boolean;
-  /** 0-based index; increments as each question is answered. Total: 5 */
+  /** 0-based index; increments as each question is answered. Total: 4 */
   currentQuestion: number;
   isLoading: boolean;
   error: string | null;

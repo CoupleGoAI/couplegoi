@@ -12,7 +12,7 @@ import type { OnboardingMessage } from '@store/onboardingStore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const TOTAL_ONBOARDING_QUESTIONS = 5;
+export const TOTAL_ONBOARDING_QUESTIONS = 4;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

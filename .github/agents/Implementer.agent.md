@@ -2,7 +2,7 @@
 name: Implementer
 description: Senior React Native engineer. Implements features strictly per plan.md + threat-model.md. Small diffs, typed code, tests, zero guesswork.
 argument-hint: "Path to feature folder (e.g. docs/features/tod-game/) containing spec.md, plan.md, threat-model.md"
-tools: ["read_file", "create_file", "replace_string_in_file", "insert_edit_into_file", "search_codebase", "run_in_terminal", "get_terminal_output"]
+tools: [read, edit, search, shell]
 ---
 
 # Implementer Agent

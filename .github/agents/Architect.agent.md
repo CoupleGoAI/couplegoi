@@ -2,7 +2,7 @@
 name: Architect
 description: Senior React Native system architect. Produces implementation-ready plan.md from a spec — module boundaries, typed interfaces, file structure, data flow.
 argument-hint: "Path to spec.md (e.g. docs/features/tod-game/spec.md)"
-tools: ["read_file", "create_file", "replace_string_in_file", "search_codebase"]
+tools: [read, edit, search]
 ---
 
 # Architect Agent

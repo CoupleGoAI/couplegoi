@@ -30,6 +30,7 @@ module.exports = {
         muted: '#fef0f4',
         accentSoft: '#f5eafa',
         borderDefault: 'rgba(30, 18, 48, 0.12)',
+        borderLight: 'rgba(228, 228, 231, 0.4)',
         surface: 'rgba(244, 139, 166, 0.06)',
         success: '#22c55e',
         warning: '#f59e0b',
@@ -38,10 +39,11 @@ module.exports = {
         info: '#3b82f6',
       },
       borderRadius: {
-        sm: '12px',  // radiusSm
-        md: '20px',  // radius (default card/surface)
-        xl: '20px',  // alias for radius
-        full: '999px', // radiusFull — pill shape
+        sm: '12px',   // radiusSm (12)
+        md: '16px',   // radiusMd (16)
+        lg: '20px',   // radius (20) — default card/surface
+        xl: '20px',   // radius alias
+        full: '999px', // radiusFull (999)
       },
       spacing: {
         xs: '4px',

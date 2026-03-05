@@ -2,7 +2,7 @@
 name: Security
 description: Mobile security engineer. Produces threat models and security constraints for React Native (Expo) features. Outputs MUST/SHOULD/MUST-NOT requirements the Implementer must follow.
 argument-hint: "Path to feature folder (e.g. docs/features/tod-game/) containing spec.md and plan.md"
-tools: ["read_file", "create_file", "replace_string_in_file", "search_codebase"]
+tools: [read, edit, search]
 ---
 
 # Security Agent

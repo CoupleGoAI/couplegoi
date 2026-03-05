@@ -2,7 +2,7 @@
 name: Orchestrator
 description: Entry point for feature creation. Drives spec → plan → threat model → implementation → review using Architect, Security, Implementer, and Reviewer agents.
 argument-hint: "Feature name + short description + acceptance criteria. Optionally: constraints, priority."
-tools: ["read_file", "create_file", "replace_string_in_file", "search_codebase", "agent"]
+tools: [read, edit, search, custom-agent, agent]
 agents: ["Architect", "Security", "Implementer", "Reviewer"]
 handoffs:
   - label: 1) Architect → plan.md

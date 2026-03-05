@@ -6,8 +6,16 @@ const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const PUBLISHABLE_DEFAULT_KEY = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
 const SECURE_STORE_CHUNK_SIZE = 2000;
-const CHUNK_META_SUFFIX = ':meta';
-const CHUNK_PART_PREFIX = ':chunk:';
+const CHUNK_META_SUFFIX = '_meta';
+const CHUNK_PART_PREFIX = '_chunk_';
+
+/**
+ * Sanitise a key so it only contains characters allowed by expo-secure-store:
+ * alphanumeric, ".", "-", and "_".
+ */
+function sanitizeKey(raw: string): string {
+    return raw.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
 
 function chunkKey(key: string, index: number): string {
     return `${key}${CHUNK_PART_PREFIX}${index}`;
@@ -41,7 +49,8 @@ async function removeChunkedValue(key: string): Promise<void> {
  * All tokens stay in the secure enclave — never AsyncStorage.
  */
 const ExpoSecureStoreAdapter = {
-    getItem: async (key: string): Promise<string | null> => {
+    getItem: async (rawKey: string): Promise<string | null> => {
+        const key = sanitizeKey(rawKey);
         const metaKey = `${key}${CHUNK_META_SUFFIX}`;
         const metaJson = await SecureStore.getItemAsync(metaKey);
         if (!metaJson) return SecureStore.getItemAsync(key);
@@ -63,7 +72,8 @@ const ExpoSecureStoreAdapter = {
             return SecureStore.getItemAsync(key);
         }
     },
-    setItem: async (key: string, value: string): Promise<void> => {
+    setItem: async (rawKey: string, value: string): Promise<void> => {
+        const key = sanitizeKey(rawKey);
         if (value.length <= SECURE_STORE_CHUNK_SIZE) {
             await removeChunkedValue(key);
             await SecureStore.setItemAsync(key, value);
@@ -86,7 +96,8 @@ const ExpoSecureStoreAdapter = {
             ),
         );
     },
-    removeItem: async (key: string): Promise<void> => {
+    removeItem: async (rawKey: string): Promise<void> => {
+        const key = sanitizeKey(rawKey);
         await SecureStore.deleteItemAsync(key);
         await removeChunkedValue(key);
     },

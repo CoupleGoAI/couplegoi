@@ -43,3 +43,20 @@ create policy "Users can view own couple"
 
 -- Couples are created by the backend (service role) during pairing flow.
 -- No direct insert/update/delete from client.
+
+-- ── Deferred profile policy (needs couples table) ───────────────────────────
+
+-- Users can view their partner's profile (via shared couple).
+create policy "Users can view partner profile"
+  on public.profiles for select
+  to authenticated
+  using (
+    id in (
+      select case
+        when c.partner1_id = (select auth.uid()) then c.partner2_id
+        when c.partner2_id = (select auth.uid()) then c.partner1_id
+      end
+      from public.couples c
+      where c.id = couple_id and c.is_active = true
+    )
+  );

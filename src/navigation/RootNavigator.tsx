@@ -4,10 +4,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@navigation/types';
 import { useAuthStore } from '@store/authStore';
 import { useAuth } from '@hooks/useAuth';
-import AuthNavigator from '@navigation/AuthNavigator';
-import PlaceholderScreen from '@screens/main/PlaceholderScreen';
-import { OnboardingChatScreen } from '@screens/main/OnboardingChatScreen';
 import SplashScreen from '@screens/auth/SplashScreen';
+import AuthNavigator from '@navigation/AuthNavigator';
+import { OnboardingChatScreen } from '@screens/main/OnboardingChatScreen';
+import PlaceholderScreen from '@screens/main/PlaceholderScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -31,11 +31,7 @@ export default function RootNavigator() {
                 {!isAuthenticated ? (
                     <Stack.Screen name="Auth" component={AuthNavigator} />
                 ) : !onboardingCompleted ? (
-                    <Stack.Screen
-                        name="Onboarding"
-                        component={OnboardingChatScreen}
-                        options={{ gestureEnabled: false }}
-                    />
+                    <Stack.Screen name="Onboarding" component={OnboardingChatScreen} />
                 ) : (
                     <Stack.Screen name="Main" component={PlaceholderScreen} />
                 )}

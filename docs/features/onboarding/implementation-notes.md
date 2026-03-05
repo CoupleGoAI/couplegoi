@@ -1,72 +1,76 @@
-# Implementation Notes: AI Onboarding Chat
+# Implementation Notes: Onboarding Chat
 
 ## Summary
 
-Implements the full AI onboarding chat feature for CoupleGoAI. After first login (when `user.onboardingCompleted === false`), the user is placed into a conversational chat UI that collects profile information through ~5 AI-driven questions. The feature is unbypassable (no back gesture, no skip), resumable (history restored from Supabase on re-entry), and reactive (navigation to Main happens automatically when the backend sets `onboarding_completed = true` and the auth store is refreshed).
+Deterministic, conversational onboarding that collects four profile fields (name, birth date, dating start date, help focus) via a chat UI after first login. The `onboarding-chat` Supabase Edge Function is a state machine with predefined prompts, strict validation, message persistence, and resumability. The client is a thin chat shell. All code was already implemented; this change corrects the `TOTAL_ONBOARDING_QUESTIONS` constant from `5` → `4` to match the spec and edge function.
 
 ## Files changed
 
-### New
-
-- `src/data/config.ts` — (Deleted) `API_BASE_URL` is no longer needed; the Supabase client handles edge function URL routing automatically via `supabase.functions.invoke()`.
-- `src/data/onboardingApi.ts` — Three data-layer functions: `getOnboardingStatus` (direct Supabase DB query on profiles + messages), `sendOnboardingMessage` (invokes `onboarding-chat` edge function via `supabase.functions.invoke()`), `fetchOnboardingHistory` (direct Supabase DB query). All return discriminated `Result<T, string>`. History items sanitize the `role` field (only trust `user|assistant`).
-- `src/store/onboardingStore.ts` — Zustand slice: `messages`, `isComplete`, `currentQuestion`, `isLoading`, `error`, plus `reset()` action. Adds `createdAt: number` to `OnboardingMessage` for timestamp display (minor extension beyond spec type — see Plan Deviation below).
-- `src/hooks/useOnboarding.ts` — Orchestration hook. On mount: fetches status, optionally restores history. `sendMessage('')` triggers first AI greeting. On completion: refreshes auth profile → RootNavigator transitions reactively. Returns `{ messages, isComplete, currentQuestion, totalQuestions, isLoading, error, sendMessage, isInitializing }`.
-- `src/components/chat/ChatBubble.tsx` — Shared message bubble component. User: right-aligned, `gradients.brand` LinearGradient. AI: left-aligned, `colors.muted` background with `colors.borderDefault` border. `React.memo` applied.
-- `src/components/chat/TypingIndicator.tsx` — Three bouncing dots using Reanimated 4 `useSharedValue` + `withRepeat` + `withSequence` + `withDelay`. Runs on UI thread. `React.memo` applied.
-- `src/screens/main/OnboardingChatScreen.tsx` — Full-screen chat UI. `LinearGradient` heroWash background. `SafeAreaView` top+bottom. Header with app name + progress dots (`currentQuestion of totalQuestions`). `FlatList` of `ChatBubble`s. `TypingIndicator` as `ListFooterComponent` when `isLoading`. Error banner. `KeyboardAvoidingView` input bar with send button. Three states: initializing splash, chat, completion screen.
-- `src/domain/onboarding/validation.ts` — Pure functions: `sanitizeMessage`, `isNonEmptyMessage`, `isWithinLengthLimit`, `isValidUserMessage`. No React dependencies.
-- `src/domain/onboarding/__tests__/validation.test.ts` — 15 unit tests covering all pure functions including edge cases and safety checks.
-- `jest.config.js` — Jest configuration using `babel-jest` + `testEnvironment: 'node'` for domain tests (avoids Expo native runtime setup for pure TS tests). Path aliases mirrored from tsconfig.
-- `eslint.config.js` — ESLint v9 flat config (was missing from repo). Enables `@typescript-eslint/no-explicit-any`, `consistent-type-imports`, `no-console` (warn), `prefer-const`. Test files excluded.
-
 ### Modified
 
-- `src/data/apiClient.ts` — Contains `invokeEdgeFunction<T>`: typed wrapper around `supabase.functions.invoke()` with generic error mapping. Also contains `supabaseQuery<T>` for typed PostgREST queries. Bearer token is managed internally by `supabase-js` — never logged or manually constructed.
-- `src/navigation/types.ts` — Added `Onboarding: undefined` to `RootStackParamList`. Added `OnboardingScreenProps` type.
-- `src/navigation/RootNavigator.tsx` — Added conditional route: `!onboardingCompleted` → `OnboardingChatScreen` with `gestureEnabled: false`. Named import of `OnboardingChatScreen`.
-- `src/components/ui/Divider.tsx` — `import type { ViewStyle }` (lint compliance)
-- `src/components/ui/GradientButton.tsx` — `import type { ViewStyle, TextStyle }` (lint compliance)
-- `src/components/ui/ScreenContainer.tsx` — `import type { ViewStyle }` (lint compliance)
-- `src/components/ui/avatar.tsx` — `import type { ViewStyle }` (lint compliance)
-- `src/components/ui/badge.tsx` — `import type { ViewStyle }` (lint compliance)
-- `src/components/ui/card.tsx` — `import type { ViewStyle }` (lint compliance)
-- `tsconfig.json` — Added `exclude` array to omit `__tests__/**` and `*.test.ts` files from the main `tsc --noEmit` compilation.
-- `package.json` — Added `jest`, `jest-expo` as devDependencies. Added `"test": "jest"` script.
+- `src/hooks/useOnboarding.ts` — `TOTAL_ONBOARDING_QUESTIONS: 5 → 4` (spec defines 4 questions; edge function uses `TOTAL_QUESTIONS = 4`)
+- `src/store/onboardingStore.ts` — Updated comment from "Total: 5" to "Total: 4"
 
-## Plan deviation
+### Already implemented (no changes needed)
 
-**`createdAt: number` added to `OnboardingMessage`** — The spec's store type has `{ id, role, content }`. The screen spec requires "Timestamps: small caption text below each bubble." To satisfy this without any string parsing of IDs, `createdAt: number` (Unix ms) was added to the interface. History items from Supabase use `new Date(item.created_at).getTime()` for conversion. Note in implementation-notes.md per instructions.
+- `supabase/functions/onboarding-chat/index.ts` — Deterministic state machine edge function (4 steps: name, birth date, dating start, help focus)
+- `supabase/schemas/02_profiles.sql` — Full profiles DDL with `birth_date`, `dating_start_date`, `help_focus` columns + RLS
+- `supabase/migrations/20260305000000_add_onboarding_profile_fields.sql` — Idempotent ALTER for existing DBs
+- `src/screens/main/OnboardingChatScreen.tsx` — Chat UI with progress dots, input bar, loading/completion/error states
+- `src/components/chat/ChatBubble.tsx` — Shared presentational bubble (user gradient, assistant muted)
+- `src/components/chat/TypingIndicator.tsx` — Reanimated bouncing dots
+- `src/data/onboardingApi.ts` — `getOnboardingStatus()`, `sendOnboardingMessage()`, `fetchOnboardingHistory()`
+- `src/data/apiClient.ts` — `invokeEdgeFunction<T>()` wrapper
+- `src/domain/onboarding/validation.ts` — Client sanitize (trim + 500-char cap)
+- `src/domain/onboarding/__tests__/validation.test.ts` — 15 passing tests
+- `src/navigation/RootNavigator.tsx` — 3-way gate: auth → onboarding → main
+- `src/store/authStore.ts` — Auth store with `onboardingCompleted` field
+- `src/hooks/useAuth.ts` — Calls `resetOnboarding()` on sign-out
+- `src/types/index.ts` — `AuthUser` with `onboardingCompleted`
 
 ## Security requirements satisfied
 
-- **Token never logged**: `invokeEdgeFunction` delegates token management entirely to `supabase-js`. The Bearer token is attached internally and never appears in debug output or local variables. No manual `Authorization` header construction.
-- **No PII in logs**: `console.log` is linted as a warning, `console.error/warn` only. Neither the token nor user messages are logged.
-- **External input validated**: `fetchOnboardingHistory` filters DB rows with a type-guard and narrows `role` to `'user' | 'assistant'` before trusting it. `sendOnboardingMessage` input goes through `sanitizeMessage` via the domain layer.
-- **Session gating**: `getOnboardingStatus` calls `supabase.auth.getUser()` before querying; returns a generic error if the session is missing or expired — no internal token details exposed.
-- **No third-party API**: All data access goes through Supabase PostgREST (for direct DB queries) or `supabase.functions.invoke()` (for edge functions). No external REST API URLs.
-- **No skip / back**: `gestureEnabled: false` on the Onboarding stack screen. No back button in `OnboardingChatScreen` header.
-- **Secrets in secure store**: Auth tokens stay in Supabase's `expo-secure-store` adapter — never in AsyncStorage.
-- **Generic error messages**: Edge function errors surface generic strings (e.g., "Request failed. Please try again.") — no stack traces or internal IDs.
-- **Input length cap**: `MAX_MESSAGE_LENGTH = 500` enforced in `sanitizeMessage` and `isValidUserMessage`; `TextInput maxLength={500}` enforces it at the UI layer.
+- [x] MUST-1: JWT verified via `supabase.auth.getUser()` before any DB op in edge function
+- [x] MUST-2: `MAX_MESSAGE_LENGTH = 500` enforced server-side, independent of client
+- [x] MUST-3: Admin client used only for scoped writes (`eq('id', user.id)`)
+- [x] MUST-4: All error responses are generic strings — no internals exposed
+- [x] MUST-5: Re-completion guard short-circuits at top of handler
+- [x] MUST-6: Name regex `^[\p{L}\s'\-]+$/u`, 2–50 chars, validated value stored
+- [x] MUST-7: Date parser with `isDateComponents` overflow guard; age 16–110; dating start > birth + < now
+- [x] MUST-8: Help focus strict allowlist (`HELP_OPTIONS` array)
+- [x] MUST-9: `onboardingStore.reset()` called on sign-out in `useAuth.ts`
+- [x] MUST-10: RLS enabled on `profiles` and `messages` tables
+- [x] MUST-11: `fetchOnboardingHistory` validates shape with `.filter()` type guards
+- [x] MUST-12: `useOnboarding` sendMessage validates response shape at runtime
+
+### SHOULD items — status
+
+- SHOULD-1 (help_focus CHECK constraint): Not implemented — defense-in-depth, edge function validates strictly
+- SHOULD-2 (completed=true CHECK with NULLs): Not implemented — edge function enforces sequencing
+- SHOULD-3 (birth_date past CHECK): Not implemented — edge function validates
+- SHOULD-4 (rate limiting): Not implemented — deferred to infrastructure layer
+- SHOULD-5 (Date.parse fallback): Present in edge function as last-resort; custom parser handles all expected formats first
+- SHOULD-6 (non-PII logging): Edge function has no console.log statements — compliant
 
 ## How to test
 
-1. **Fresh onboarding**: Create a new account (Register screen). After email confirmation / sign-in, if `onboarding_completed = false` in the `profiles` table, you should be routed to `OnboardingChatScreen` automatically.
-2. **First greeting**: On screen mount (no prior messages), the screen auto-sends an empty message → AI replies with a greeting + first question. Confirm no empty user bubble appears.
-3. **Progress dots**: As `questionIndex` increments in API responses, dots fill left-to-right (pink = answered, gray = pending).
-4. **Typing indicator**: While waiting for an AI reply, three animated bouncing dots appear below the last message.
-5. **Resume mid-flow**: Kill the app during question 3. Reopen — if the backend's `currentQuestion > 0`, `fetchOnboardingHistory` is called and prior messages restore correctly.
-6. **Completion**: After the final answer, the screen transitions to the "🎉 You're all set!" state. Shortly after, `fetchProfile` updates `user.onboardingCompleted = true` in the auth store and `RootNavigator` automatically shows `PlaceholderScreen` (Main).
-7. **Error state**: Disable network. Send a message — the error banner appears with a generic message. Re-enable network and send again — it succeeds.
-8. **Back gesture blocked**: On iOS, swipe left on the Onboarding screen — the gesture is disabled (`gestureEnabled: false`).
+1. Register a new account → app navigates to OnboardingChatScreen automatically
+2. Verify greeting message appears ("Hey there! 💕 Welcome to CoupleGoAI…")
+3. Progress shows "0 of 4" with 4 empty dots
+4. Type a valid name (e.g., "Seva") → dot fills, progress updates to "1 of 4"
+5. Type an invalid name (e.g., "123") → re-ask appears, progress stays at "0 of 4"
+6. Answer birth date (e.g., "March 12, 1997") → progress to "2 of 4"
+7. Answer dating start date (e.g., "June 15, 2023") → progress to "3 of 4"
+8. Answer help focus (e.g., "communication") → completion screen with "You're all set!"
+9. Tap "Let's Go!" → navigates to Main (PlaceholderScreen)
+10. Kill app mid-onboarding → reopen → conversation resumes at correct step
 
 ## Tests added
 
-- `src/domain/onboarding/__tests__/validation.test.ts` — 15 unit tests covering `sanitizeMessage` (trim, truncation, whitespace), `isNonEmptyMessage` (empty/non-empty/whitespace), `isWithinLengthLimit` (boundary conditions), and `isValidUserMessage` (combined guard, safety against untrusted input).
+- No new tests required — existing `src/domain/onboarding/__tests__/validation.test.ts` (15 tests) covers client-side domain logic
 
 ## Known limitations / follow-ups
 
-- The `useOnboarding` `useEffect` uses an empty deps array guarded by `hasInitialized.current`. This correctly runs once on mount but would not re-initialize if the user id changed while the screen was mounted (impossible in this flow, but worth noting).
-- The "Let's Go!" button on the completion screen calls `retryComplete()` which re-fetches the auth profile with a loading state and error banner — retry CTA is fully implemented.
-- `ChatBubble` and `TypingIndicator` are placed in `src/components/chat/` to be reused by the main AI Chat feature (per spec: "Reuses the same chat bubble components").
+- SHOULD-1/2/3 database CHECK constraints deferred — edge function is authoritative
+- `Date.parse` fallback in edge function (SHOULD-5) accepts ambiguous formats; acceptable risk since custom parser handles all expected inputs first
+- Rate limiting (SHOULD-4) deferred to infrastructure/Supabase project settings

@@ -23,12 +23,27 @@ export function useAuth(): {
     /**
      * Hydrate user from Supabase auth + profiles table.
      * Called on session restore and after sign-in/sign-up.
+     *
+     * IMPORTANT: always calls setUser so isAuthenticated becomes true.
+     * If fetchProfile fails (row missing, network, RLS), a minimal
+     * user object is set as a fallback — the profile can be retried later.
      */
     const hydrateUser = useCallback(
-        async (userId: string): Promise<void> => {
+        async (userId: string, email?: string): Promise<void> => {
             const result = await authData.fetchProfile(userId);
             if (result.ok) {
                 setUser(result.data);
+            } else {
+                // Fallback: guarantee isAuthenticated = true
+                setUser({
+                    id: userId,
+                    email: email ?? '',
+                    name: null,
+                    avatarUrl: null,
+                    onboardingCompleted: false,
+                    coupleId: null,
+                    createdAt: new Date().toISOString(),
+                });
             }
         },
         [setUser],
@@ -42,7 +57,7 @@ export function useAuth(): {
         try {
             const result = await authData.getSession();
             if (result.ok && result.data) {
-                await hydrateUser(result.data.user.id);
+                await hydrateUser(result.data.user.id, result.data.user.email);
             }
         } catch {
             // Session restore failed — user will see login screen
@@ -57,7 +72,7 @@ export function useAuth(): {
             data: { subscription },
         } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session?.user) {
-                await hydrateUser(session.user.id);
+                await hydrateUser(session.user.id, session.user.email);
             }
             if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
                 resetAuth();

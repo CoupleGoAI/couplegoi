@@ -30,8 +30,9 @@ type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
  * Reads directly from Supabase — no edge function needed for simple status.
  *
  * - `completed` is read from the `profiles.onboarding_completed` column.
- * - `currentQuestion` is derived from the count of user messages in the
- *   `messages` table with `conversation_type = 'onboarding'`.
+ * - `currentQuestion` is derived from profile fields (name, birth_date,
+ *   dating_start_date, help_focus) to match the edge function's deriveStep logic.
+ *   This avoids inflation from invalid attempts that increase message count.
  */
 export async function getOnboardingStatus(): Promise<ApiResult<OnboardingStatusResponse>> {
   try {
@@ -42,10 +43,10 @@ export async function getOnboardingStatus(): Promise<ApiResult<OnboardingStatusR
 
     const userId = userData.user.id;
 
-    // Fetch profile to check completion status
+    // Fetch profile to check completion status and derive current step
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('onboarding_completed')
+      .select('onboarding_completed, name, birth_date, dating_start_date, help_focus')
       .eq('id', userId)
       .single();
 
@@ -61,19 +62,14 @@ export async function getOnboardingStatus(): Promise<ApiResult<OnboardingStatusR
       return { ok: true, data: { completed: true, currentQuestion: 0 } };
     }
 
-    // Count user messages to determine current question index
-    const { count, error: countError } = await supabase
-      .from('messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('conversation_type', 'onboarding')
-      .eq('role', 'user');
+    // Derive step from profile fields — mirrors edge function's deriveStep()
+    let step = 0;
+    if (profile?.name) step = 1;
+    if (step === 1 && profile?.birth_date) step = 2;
+    if (step === 2 && profile?.dating_start_date) step = 3;
+    if (step === 3 && profile?.help_focus) step = 4;
 
-    if (countError) {
-      return { ok: false, error: 'Failed to load onboarding status.' };
-    }
-
-    return { ok: true, data: { completed: false, currentQuestion: count ?? 0 } };
+    return { ok: true, data: { completed: false, currentQuestion: step } };
   } catch {
     return { ok: false, error: 'Failed to load onboarding status.' };
   }

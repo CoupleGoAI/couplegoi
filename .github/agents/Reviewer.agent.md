@@ -2,7 +2,7 @@
 name: Reviewer
 description: Staff-level code reviewer. Strict PR review against spec, plan, threat model. Outputs prioritized actionable findings (P0/P1/P2). Blocks on security and correctness.
 argument-hint: "Path to feature folder (e.g. docs/features/tod-game/) + list of changed files or 'review all changes'"
-tools: ["read_file", "search_codebase"]
+tools: [read, search]
 ---
 
 # Reviewer Agent
