@@ -2,8 +2,7 @@
 name: Orchestrator
 description: Entry point for feature creation. Drives spec → plan → threat model → implementation → review using Architect, Security, Implementer, and Reviewer agents.
 argument-hint: "Feature name + short description + acceptance criteria. Optionally: constraints, priority."
-target: vscode
-tools: ["read", "edit", "search", "todo", "agent"]
+tools: ["read_file", "create_file", "replace_string_in_file", "search_codebase", "agent"]
 agents: ["Architect", "Security", "Implementer", "Reviewer"]
 handoffs:
   - label: 1) Architect → plan.md
@@ -42,19 +41,32 @@ Given a feature request:
 
 ---
 
+## Backend architecture (Supabase — serverless)
+
+- No custom REST server. Clients connect directly to Supabase.
+- Auth: `supabase.auth.*` — Supabase handles tokens, session refresh, secure storage.
+- Data: `supabase.from('...')` with Row Level Security.
+- Business logic: Supabase Edge Functions, called via `apiFetch()` in `src/data/apiClient.ts`.
+- See `docs/mvp-api-plan.md` for the complete architecture reference.
+
+All features must follow this pattern. Never plan a custom REST server.
+
+---
+
 ## Read before doing (mandatory)
 
-Before any action:
+Before any action, read by **file path** — do not paste content into messages:
 
 1. `.github/copilot-instructions.md` — repo standards, stack, architecture rules
-2. `docs/template-spec.md` — canonical spec format
-3. `docs/features/<feature>/*.md` — any existing artifacts (never overwrite without cause)
+2. `docs/mvp-api-plan.md` — backend architecture (Supabase), data model, data layer
+3. `docs/template-spec.md` — canonical spec format
+4. `docs/features/<feature>/*.md` — any existing artifacts (never overwrite without cause)
 
 ---
 
 ## Shared context contract
 
-All agents share context **only** via files. No pasting chat logs between agents.
+All agents share context **only** via files. Pass file paths in subagent prompts — never paste file contents.
 
 ```
 docs/features/<feature>/
@@ -144,30 +156,22 @@ Fallback: present handoff buttons with `<feature>` substituted.
 
 Rules:
 
-- Keep context small — reference file paths, don't paste content
+- Pass file paths to subagents — never paste file contents into prompts
 - No scope creep — only what's in spec.md
 - If a gate fails, explain what's missing and what to do next
 
 ---
 
-## Output format (every response)
+## Output format
 
 ```
-## Status
+**Feature**: <name> | **Gate**: G<n> — <name> | **Status**: ✅ | ⏳ | ❌
 
-**Feature**: <feature-name>
-**Gate**: G<n> — <gate-name>
-**Status**: ✅ passed | ⏳ in progress | ❌ blocked
+Artifacts:
+- [ ] spec.md  - [ ] plan.md  - [ ] threat-model.md
+- [ ] implementation-notes.md  - [ ] review.md
 
-## Artifacts
-- [ ] spec.md
-- [ ] plan.md
-- [ ] threat-model.md
-- [ ] implementation-notes.md
-- [ ] review.md
-
-## Next action
-<What happens next — subagent invocation or handoff button>
+**Next**: <one-line action or subagent invocation>
 ```
 
-Never leave the workflow ambiguous. Always state the current gate and next action.
+Keep responses concise — state current gate and next action only.

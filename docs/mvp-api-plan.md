@@ -1,6 +1,35 @@
-# CoupleGoAI — MVP API & Architecture Plan
+# CoupleGoAI — MVP Architecture Plan
 
-> This document is the shared reference for all feature specs. It defines the API surface, data model, auth flow, and implementation order.
+> This document is the shared reference for all feature specs. It defines the backend architecture, data model, auth flow, and implementation order.
+
+---
+
+## Backend architecture — Supabase (serverless)
+
+There is **no custom REST server**. The backend is entirely Supabase:
+
+| Layer | Tech | Usage |
+|-------|------|-------|
+| Auth | Supabase Auth | `supabase.auth.*` — sign-up, sign-in, sign-out, session refresh |
+| Database | Supabase Postgres + RLS | `supabase.from('...')` — all data reads/writes |
+| Business logic | Supabase Edge Functions | `apiFetch('/function-name', ...)` via `src/data/apiClient.ts` |
+| Real-time | Supabase Realtime | `supabase.channel(...)` subscriptions |
+| Storage | Supabase Storage | `supabase.storage` for files/images |
+
+### Env vars (never hard-coded)
+
+```
+EXPO_PUBLIC_SUPABASE_URL              — Supabase project URL
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY  — Supabase anon key (public, safe to expose)
+EXPO_PUBLIC_API_BASE_URL              — Edge Function base URL (defaults to production)
+```
+
+### Auth model
+
+- Session managed entirely by `supabase-js` with `expo-secure-store` adapter — tokens never touch AsyncStorage
+- `autoRefreshToken: true` handles silent refresh automatically
+- On sign-out: `supabase.auth.signOut()` + reset all Zustand stores
+- Access the session anywhere: `supabase.auth.getSession()` — `supabase-js` attaches the Bearer token to all requests automatically
 
 ---
 
@@ -8,139 +37,10 @@
 
 Features must be built in this order (each depends on the previous):
 
-1. **auth** — registration, login, persistent sessions, apiClient, secure token storage
+1. **auth** — registration, login, persistent sessions, Supabase client, secure token storage
 2. **onboarding** — AI chat-based profile collection after first login
 3. **partner-connection** — QR-based pairing, couple creation, disconnect
 4. **ai-chat** — private AI conversation with persistent history
-
----
-
-## Backend base URL
-
-```
-API_BASE_URL = https://api.couplegoai.com/v1   (production)
-API_BASE_URL = http://localhost:3000/v1         (development)
-```
-
-Stored in app config (`src/data/config.ts`), sourced from environment variable.
-
----
-
-## Authentication model
-
-- JWT access token (15 min TTL) + refresh token (30 day TTL)
-- Access token sent as `Authorization: Bearer <token>` on every authenticated request
-- On 401 response: attempt silent refresh via `/auth/refresh`. If refresh fails → logout + navigate to login
-- Tokens stored in `expo-secure-store` (never AsyncStorage)
-- On logout: POST `/auth/logout`, delete tokens from secure store, reset all Zustand stores
-
----
-
-## Shared API client (`src/data/apiClient.ts`)
-
-All features use this single client. It handles:
-
-- Base URL configuration
-- Attaching access token to headers
-- 401 → refresh → retry (once, then logout)
-- Request/response typing
-- Timeout (10s default)
-- Error normalization to `ApiError` type
-
-```ts
-interface ApiError {
-  code: string; // e.g. 'AUTH_EXPIRED', 'VALIDATION_ERROR', 'NETWORK_ERROR'
-  message: string; // user-safe message
-  status?: number;
-}
-
-type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
-```
-
----
-
-## Complete API surface (MVP)
-
-### Auth
-
-| Method | Path             | Auth | Purpose            |
-| ------ | ---------------- | ---- | ------------------ |
-| POST   | `/auth/register` | No   | Create account     |
-| POST   | `/auth/login`    | No   | Login              |
-| POST   | `/auth/refresh`  | No   | Refresh tokens     |
-| POST   | `/auth/logout`   | Yes  | Invalidate session |
-
-### Onboarding
-
-| Method | Path                  | Auth | Purpose                             |
-| ------ | --------------------- | ---- | ----------------------------------- |
-| GET    | `/onboarding/status`  | Yes  | Check completion + current question |
-| POST   | `/onboarding/message` | Yes  | Send user answer, get AI reply      |
-
-### Pairing
-
-| Method | Path                  | Auth | Purpose                           |
-| ------ | --------------------- | ---- | --------------------------------- |
-| POST   | `/pairing/generate`   | Yes  | Create pairing token + QR data    |
-| POST   | `/pairing/connect`    | Yes  | Scan token, create couple         |
-| POST   | `/pairing/disconnect` | Yes  | Break couple bond                 |
-| GET    | `/pairing/status`     | Yes  | Check if paired, get partner info |
-
-### Chat
-
-| Method | Path             | Auth | Purpose                    |
-| ------ | ---------------- | ---- | -------------------------- |
-| GET    | `/chat/messages` | Yes  | Paginated message history  |
-| POST   | `/chat/send`     | Yes  | Send message, get AI reply |
-
-### User
-
-| Method | Path       | Auth | Purpose                  |
-| ------ | ---------- | ---- | ------------------------ |
-| GET    | `/user/me` | Yes  | Get current user profile |
-
-**Total: 11 endpoints**
-
----
-
-## Data model (backend, for context)
-
-```
-User {
-  id            UUID
-  email         string (unique)
-  password_hash string
-  name          string? (set during onboarding)
-  age_range     string? (set during onboarding)
-  onboarding_completed  boolean (default false)
-  couple_id     UUID? (nullable)
-  created_at    timestamp
-}
-
-Couple {
-  id            UUID
-  partner1_id   UUID (FK → User)
-  partner2_id   UUID (FK → User)
-  is_active     boolean
-  created_at    timestamp
-}
-
-Message {
-  id            UUID
-  user_id       UUID (FK → User)
-  role          enum('user', 'assistant')
-  content       text
-  created_at    timestamp
-}
-
-PairingToken {
-  id            UUID
-  creator_id    UUID (FK → User)
-  token         string (unique, short-lived)
-  expires_at    timestamp
-  used          boolean
-}
-```
 
 ---
 
@@ -148,31 +48,103 @@ PairingToken {
 
 ```
 src/data/
-  config.ts          — API_BASE_URL, timeouts
-  apiClient.ts       — shared fetch wrapper with auth + retry
-  authApi.ts         — register, login, refresh, logout
-  onboardingApi.ts   — onboarding status + message
-  pairingApi.ts      — generate, connect, disconnect, status
-  chatApi.ts         — messages, send
-  userApi.ts         — me
-  secureStorage.ts   — expo-secure-store wrapper for tokens
+  supabase.ts        — Supabase client singleton (expo-secure-store adapter)
+  auth.ts            — Typed wrappers around supabase.auth.* methods
+  apiClient.ts       — apiFetch() for Edge Functions + supabaseQuery() helper
+  config.ts          — EXPO_PUBLIC_API_BASE_URL (Edge Function base URL)
+  onboardingApi.ts   — onboarding status + AI message (Edge Function calls)
+  pairingApi.ts      — generate token, connect, disconnect, status (Edge Function calls)
+  chatApi.ts         — message history + send (Edge Function + Postgres query)
+  userApi.ts         — fetch and update user profile (Postgres query)
+```
+
+### `supabaseQuery<T>` — for Postgres queries
+
+```ts
+// Wraps supabase.from('...') calls into ApiResult<T>
+const result = await supabaseQuery(() =>
+  supabase.from('profiles').select('*').eq('id', userId).single()
+);
+```
+
+### `apiFetch<T>` — for Edge Functions
+
+```ts
+// Attaches Bearer token automatically, enforces 10s timeout
+const result = await apiFetch<ResponseType>('/function-name', {
+  method: 'POST',
+  body: JSON.stringify({ ... }),
+});
 ```
 
 ---
 
-## Navigation flow (post-MVP wiring)
+## Data model (Supabase Postgres)
+
+All tables live in `supabase/schemas/`. See `supabase/migrations/` for the canonical SQL.
+
+```
+profiles (extends auth.users)
+  id                UUID (FK → auth.users.id)
+  name              text?
+  avatar_url        text?
+  onboarding_completed  boolean (default false)
+  couple_id         UUID? (FK → couples.id)
+  created_at        timestamp
+
+couples
+  id                UUID
+  partner1_id       UUID (FK → profiles.id)
+  partner2_id       UUID (FK → profiles.id)
+  is_active         boolean
+  created_at        timestamp
+
+messages
+  id                UUID
+  user_id           UUID (FK → profiles.id)
+  role              text ('user' | 'assistant')
+  content           text
+  created_at        timestamp
+
+pairing_tokens
+  id                UUID
+  creator_id        UUID (FK → profiles.id)
+  token             text (unique, short-lived)
+  expires_at        timestamp
+  used              boolean
+```
+
+RLS policies protect all tables. Clients only read/write their own data.
+
+---
+
+## Edge Functions (business logic + AI)
+
+Business logic that must not run on the client goes in Supabase Edge Functions:
+
+| Function | Purpose |
+|----------|---------|
+| `onboarding-chat` | AI conversation for profile collection |
+| `ai-chat` | Private AI conversation with history |
+| `pairing-generate` | Create pairing token (server-enforced TTL) |
+| `pairing-connect` | Validate token, create couple record |
+
+Edge Functions receive the user's JWT from the Authorization header and verify it via `supabase.auth.getUser(authHeader)`.
+
+---
+
+## Navigation flow
 
 ```
 App launch
-  → Check secure store for refresh token
-    → Token exists → try /auth/refresh
-      → Success → check onboarding_completed
-        → false → OnboardingChatScreen
-        → true  → check couple_id
-          → null → Partner connection flow (GenerateQR / ScanQR)
-          → exists → Main tabs (Home, Chat, Game, Profile)
-      → Fail → LoginScreen
-    → No token → LoginScreen
+  → supabase.auth.getSession()
+    → No session → LoginScreen
+    → Session exists
+        → fetch profiles row
+          → onboarding_completed=false → OnboardingChatScreen
+          → onboarding_completed=true
+              → couple_id=null → Partner connection flow (GenerateQR / ScanQR)
+              → couple_id exists → Main tabs (Home, Chat, Game, Profile)
 ```
 
 ---
