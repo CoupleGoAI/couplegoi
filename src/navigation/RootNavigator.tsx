@@ -6,6 +6,7 @@ import { useAuthStore } from '@store/authStore';
 import { useAuth } from '@hooks/useAuth';
 import AuthNavigator from '@navigation/AuthNavigator';
 import PlaceholderScreen from '@screens/main/PlaceholderScreen';
+import { OnboardingChatScreen } from '@screens/main/OnboardingChatScreen';
 import SplashScreen from '@screens/auth/SplashScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -13,6 +14,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
     const isInitialized = useAuthStore((s) => s.isInitialized);
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+    const onboardingCompleted = useAuthStore((s) => s.user?.onboardingCompleted ?? false);
     const { initialize } = useAuth();
 
     useEffect(() => {
@@ -28,6 +30,12 @@ export default function RootNavigator() {
             <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
                 {!isAuthenticated ? (
                     <Stack.Screen name="Auth" component={AuthNavigator} />
+                ) : !onboardingCompleted ? (
+                    <Stack.Screen
+                        name="Onboarding"
+                        component={OnboardingChatScreen}
+                        options={{ gestureEnabled: false }}
+                    />
                 ) : (
                     <Stack.Screen name="Main" component={PlaceholderScreen} />
                 )}

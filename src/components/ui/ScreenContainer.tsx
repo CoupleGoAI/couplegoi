@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, ViewStyle } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, layout } from '@/theme/tokens';
 

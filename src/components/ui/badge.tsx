@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients, radii, spacing, fontFamilies, fontSize, fontWeight, letterSpacing } from '@/theme/tokens';
 

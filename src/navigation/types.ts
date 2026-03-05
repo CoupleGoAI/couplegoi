@@ -9,6 +9,7 @@ export type AuthStackParamList = {
 // --- Root Stack ---
 export type RootStackParamList = {
     Auth: undefined;
+    Onboarding: undefined;
     Main: undefined;
 };
 
@@ -19,3 +20,6 @@ export type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
 // Auth screen props
 export type LoginScreenProps = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 export type RegisterScreenProps = NativeStackScreenProps<AuthStackParamList, 'Register'>;
+
+// Onboarding screen props
+export type OnboardingScreenProps = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;

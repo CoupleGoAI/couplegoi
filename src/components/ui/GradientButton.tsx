@@ -4,9 +4,8 @@ import {
     Text,
     StyleSheet,
     ActivityIndicator,
-    ViewStyle,
-    TextStyle,
 } from 'react-native';
+import type { ViewStyle, TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients, radii, shadows, spacing, fontFamilies, fontSize, fontWeight, letterSpacing } from '@/theme/tokens';
 
