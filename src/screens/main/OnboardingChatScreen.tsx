@@ -23,6 +23,8 @@ import {
   colors,
   gradients,
   fontFamilies,
+  fontSize,
+  fontWeight,
   letterSpacing,
   shadows,
   spacing,
@@ -400,13 +402,13 @@ const styles = StyleSheet.create({
   },
 
   chipEmoji: {
-    fontSize: 16,
+    fontSize: fontSize.base,
   },
 
   chipLabel: {
     fontFamily: fontFamilies.sans,
-    fontSize: 14,
-    fontWeight: '500' as const,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
     color: colors.foreground,
   },
 });

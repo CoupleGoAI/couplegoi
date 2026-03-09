@@ -122,8 +122,8 @@ function ageFromDate(birth: Date): number {
 }
 
 function validateHelpType(value: string): string | null {
-  const normalised = value.trim().toLowerCase().replace(/\s+/g, "_");
-  if (VALID_HELP_OPTIONS.has(normalised)) return normalised;
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, "_");
+  if (VALID_HELP_OPTIONS.has(normalized)) return normalized;
   return null;
 }
 
