@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  ScrollView,
 } from 'react-native';
 import type { ListRenderItemInfo } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import GradientButton from '@components/ui/GradientButton';
 import { ChatBubble } from '@components/chat/ChatBubble';
 import { TypingIndicator } from '@components/chat/TypingIndicator';
-import { useOnboarding } from '@hooks/useOnboarding';
+import { useOnboarding, TOTAL_ONBOARDING_QUESTIONS } from '@hooks/useOnboarding';
 import {
   colors,
   gradients,
@@ -25,9 +26,27 @@ import {
   letterSpacing,
   shadows,
   spacing,
+  radii,
 } from '@/theme/tokens';
 import type { OnboardingScreenProps } from '@navigation/types';
 import type { OnboardingMessage } from '@store/onboardingStore';
+
+// ─── Help-Type Chip Data ──────────────────────────────────────────────────────
+
+interface HelpChip {
+  value: string;
+  label: string;
+  emoji: string;
+}
+
+const HELP_CHIPS: HelpChip[] = [
+  { value: 'communication', label: 'Communication', emoji: '💬' },
+  { value: 'conflict', label: 'Conflict resolution', emoji: '🤝' },
+  { value: 'trust', label: 'Trust', emoji: '🔒' },
+  { value: 'emotional_connection', label: 'Emotional connection', emoji: '💞' },
+  { value: 'intimacy', label: 'Intimacy', emoji: '🌹' },
+  { value: 'other', label: 'Other', emoji: '✨' },
+];
 
 // ─── Progress Dots ────────────────────────────────────────────────────────────
 
@@ -104,6 +123,17 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
     if (isLoading) return;
     void sendMessage('');
   }, [isLoading, sendMessage]);
+
+  const handleChipSelect = useCallback(
+    (value: string) => {
+      if (isLoading) return;
+      void sendMessage(value);
+    },
+    [isLoading, sendMessage],
+  );
+
+  // Question 3 (0-based) = help-focus → show chips
+  const isHelpQuestion = currentQuestion === TOTAL_ONBOARDING_QUESTIONS - 1 && !isComplete;
 
   // ── Loading splash while initializing ─────────────────────────────────────
   if (isInitializing) {
@@ -230,41 +260,67 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
             </View>
           )}
 
-          {/* Input bar */}
-          <View className="flex-row items-end px-5 py-md border-t border-borderLight gap-md">
-            <TextInput
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder="Type your answer…"
-              placeholderTextColor={colors.gray}
-              className="flex-1 bg-white rounded-md border-borderDefault px-lg py-md text-base text-foreground"
-              style={styles.input}
-              multiline
-              maxLength={500}
-              returnKeyType="send"
-              onSubmitEditing={handleSend}
-              blurOnSubmit
-              editable={!isLoading}
-            />
-            <TouchableOpacity
-              onPress={handleSend}
-              disabled={sendDisabled}
-              activeOpacity={0.75}
-              className="w-12 h-12 rounded-full overflow-hidden"
-              style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
-              accessibilityLabel="Send message"
-              accessibilityRole="button"
+          {/* Help-type chips (question 4) */}
+          {isHelpQuestion && !isLoading && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipsContainer}
+              keyboardShouldPersistTaps="handled"
             >
-              <LinearGradient
-                colors={sendDisabled ? gradients.disabled : gradients.brand}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                className="flex-1 items-center justify-center"
+              {HELP_CHIPS.map((chip) => (
+                <TouchableOpacity
+                  key={chip.value}
+                  onPress={() => handleChipSelect(chip.value)}
+                  activeOpacity={0.75}
+                  style={styles.chip}
+                  accessibilityLabel={chip.label}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.chipEmoji}>{chip.emoji}</Text>
+                  <Text style={styles.chipLabel}>{chip.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          {/* Input bar — hidden on help-type question */}
+          {!isHelpQuestion && (
+            <View className="flex-row items-end px-5 py-md border-t border-borderLight gap-md">
+              <TextInput
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Type your answer…"
+                placeholderTextColor={colors.gray}
+                className="flex-1 bg-white rounded-md border-borderDefault px-lg py-md text-base text-foreground"
+                style={styles.input}
+                multiline
+                maxLength={500}
+                returnKeyType="send"
+                onSubmitEditing={handleSend}
+                blurOnSubmit
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                onPress={handleSend}
+                disabled={sendDisabled}
+                activeOpacity={0.75}
+                className="w-12 h-12 rounded-full overflow-hidden"
+                style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
+                accessibilityLabel="Send message"
+                accessibilityRole="button"
               >
-                <Ionicons name="arrow-up" size={20} color={colors.white} />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={sendDisabled ? gradients.disabled : gradients.brand}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  className="flex-1 items-center justify-center"
+                >
+                  <Ionicons name="arrow-up" size={20} color={colors.white} />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
@@ -319,5 +375,38 @@ const styles = StyleSheet.create({
     opacity: 0.5,
     shadowOpacity: 0,
     elevation: 0,
+  },
+
+  // Help-type chips — horizontal scrollable row
+  chipsContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDefault,
+  },
+
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.muted,
+    borderRadius: radii.radiusFull,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    ...shadows.sm,
+  },
+
+  chipEmoji: {
+    fontSize: 16,
+  },
+
+  chipLabel: {
+    fontFamily: fontFamilies.sans,
+    fontSize: 14,
+    fontWeight: '500' as const,
+    color: colors.foreground,
   },
 });
