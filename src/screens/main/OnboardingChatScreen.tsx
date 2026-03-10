@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import GradientButton from '@components/ui/GradientButton';
 import { ChatBubble } from '@components/chat/ChatBubble';
 import { TypingIndicator } from '@components/chat/TypingIndicator';
+import { HelpTypeChips } from '@components/chat/HelpTypeChips';
 import { useOnboarding } from '@hooks/useOnboarding';
 import {
   colors,
@@ -28,6 +29,15 @@ import {
 } from '@/theme/tokens';
 import type { OnboardingScreenProps } from '@navigation/types';
 import type { OnboardingMessage } from '@store/onboardingStore';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const TYPING_DELAY_MIN_MS = 300;
+const TYPING_DELAY_MAX_MS = 600;
+
+function randomTypingDelay(): number {
+  return Math.floor(Math.random() * (TYPING_DELAY_MAX_MS - TYPING_DELAY_MIN_MS + 1)) + TYPING_DELAY_MIN_MS;
+}
 
 // ─── Progress Dots ────────────────────────────────────────────────────────────
 
@@ -64,8 +74,21 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
   } = useOnboarding();
 
   const [inputText, setInputText] = useState('');
+  const [showTyping, setShowTyping] = useState(false);
   const flatListRef = useRef<FlatList<OnboardingMessage>>(null);
   const hasTriggeredFirst = useRef(false);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Derived state
+  const showChips = currentQuestion === 3 && !isComplete;
+  const showInput = currentQuestion < 3 && !isComplete;
+
+  // Cleanup typing timer on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, []);
 
   // Auto-trigger first AI greeting once initialization completes with no messages
   useEffect(() => {
@@ -73,25 +96,39 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
     if (isInitializing) return;
     if (messages.length === 0) {
       hasTriggeredFirst.current = true;
-      void sendMessage('');
+      setShowTyping(true);
+      typingTimerRef.current = setTimeout(() => {
+        setShowTyping(false);
+        void sendMessage('');
+      }, randomTypingDelay());
     }
   }, [isInitializing, messages.length, sendMessage]);
 
-  // Scroll to bottom when new messages arrive
+  // Scroll to bottom when new messages arrive or typing indicator shows
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (messages.length === 0 && !showTyping) return;
     const id = setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
     return () => clearTimeout(id);
-  }, [messages.length]);
+  }, [messages.length, showTyping]);
 
+  /** Send a text message with typing delay before AI response */
   const handleSend = useCallback(() => {
     const trimmed = inputText.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || showTyping) return;
     setInputText('');
     void sendMessage(trimmed);
-  }, [inputText, isLoading, sendMessage]);
+  }, [inputText, isLoading, showTyping, sendMessage]);
+
+  /** Handle chip selection for help type question */
+  const handleChipSelect = useCallback(
+    (value: string) => {
+      if (isLoading || showTyping) return;
+      void sendMessage(value);
+    },
+    [isLoading, showTyping, sendMessage],
+  );
 
   const renderMessage = useCallback(
     ({ item }: ListRenderItemInfo<OnboardingMessage>) => <ChatBubble message={item} />,
@@ -159,7 +196,7 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
   }
 
   // ── Main chat UI ───────────────────────────────────────────────────────────
-  const sendDisabled = !inputText.trim() || isLoading;
+  const sendDisabled = !inputText.trim() || isLoading || showTyping;
 
   return (
     <LinearGradient colors={gradients.heroWash} className="flex-1">
@@ -196,7 +233,7 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
             contentContainerStyle={styles.messageList}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
-              isLoading ? null : (
+              isLoading || showTyping ? null : (
                 <View className="flex-1 items-center justify-center pt-2xl px-5 gap-md">
                   <Text className="text-base text-foreground text-center">
                     {error ? 'Connection issue' : 'Start your story'}
@@ -219,7 +256,7 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
                 </View>
               )
             }
-            ListFooterComponent={isLoading ? <TypingIndicator /> : null}
+            ListFooterComponent={isLoading || showTyping ? <TypingIndicator /> : null}
           />
 
           {/* Error banner */}
@@ -230,41 +267,51 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
             </View>
           )}
 
-          {/* Input bar */}
-          <View className="flex-row items-end px-5 py-md border-t border-borderLight gap-md">
-            <TextInput
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder="Type your answer…"
-              placeholderTextColor={colors.gray}
-              className="flex-1 bg-white rounded-md border-borderDefault px-lg py-md text-base text-foreground"
-              style={styles.input}
-              multiline
-              maxLength={500}
-              returnKeyType="send"
-              onSubmitEditing={handleSend}
-              blurOnSubmit
-              editable={!isLoading}
+          {/* Help type chips — shown for question 3 */}
+          {showChips && (
+            <HelpTypeChips
+              onSelect={handleChipSelect}
+              disabled={isLoading || showTyping}
             />
-            <TouchableOpacity
-              onPress={handleSend}
-              disabled={sendDisabled}
-              activeOpacity={0.75}
-              className="w-12 h-12 rounded-full overflow-hidden"
-              style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
-              accessibilityLabel="Send message"
-              accessibilityRole="button"
-            >
-              <LinearGradient
-                colors={sendDisabled ? gradients.disabled : gradients.brand}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                className="flex-1 items-center justify-center"
+          )}
+
+          {/* Text input bar — shown for questions 0–2 */}
+          {showInput && (
+            <View className="flex-row items-end px-5 py-md border-t border-borderLight gap-md">
+              <TextInput
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Type your answer…"
+                placeholderTextColor={colors.gray}
+                className="flex-1 bg-white rounded-md border-borderDefault px-lg py-md text-base text-foreground"
+                style={styles.input}
+                multiline
+                maxLength={500}
+                returnKeyType="send"
+                onSubmitEditing={handleSend}
+                blurOnSubmit
+                editable={!isLoading && !showTyping}
+              />
+              <TouchableOpacity
+                onPress={handleSend}
+                disabled={sendDisabled}
+                activeOpacity={0.75}
+                className="w-12 h-12 rounded-full overflow-hidden"
+                style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
+                accessibilityLabel="Send message"
+                accessibilityRole="button"
               >
-                <Ionicons name="arrow-up" size={20} color={colors.white} />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={sendDisabled ? gradients.disabled : gradients.brand}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  className="flex-1 items-center justify-center"
+                >
+                  <Ionicons name="arrow-up" size={20} color={colors.white} />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
