@@ -1,4 +1,4 @@
-# Feature: Partner Connection (QR)
+# Feature: Couple Pairing (QR)
 
 ## What
 
