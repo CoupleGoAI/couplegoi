@@ -1,8 +1,8 @@
-# Feature: Partner Connection (QR) — Threat Model
+# Feature: Couple Pairing (QR) — Threat Model
 
 > **Status**: Draft
-> **Spec**: `docs/features/partner-connection/spec.md`
-> **Plan**: `docs/features/partner-connection/plan.md`
+> **Spec**: `docs/features/couple-pairing/spec.md`
+> **Plan**: `docs/features/couple-pairing/plan.md`
 > **Date**: 2026-03-10
 
 ---

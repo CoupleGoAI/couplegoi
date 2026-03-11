@@ -1,7 +1,7 @@
-# Feature: Partner Connection (QR) — Architecture Plan
+# Feature: Couple Pairing (QR) — Architecture Plan
 
 > **Status**: Draft
-> **Spec**: `docs/features/partner-connection/spec.md`
+> **Spec**: `docs/features/couple-pairing/spec.md`
 > **Date**: 2026-03-10
 
 ---
