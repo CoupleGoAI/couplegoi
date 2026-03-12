@@ -243,10 +243,8 @@ Deno.serve(async (req) => {
       return json({ error: "Profile not found", detail: profileError?.message }, 404);
     }
 
-    const currentStep = deriveStep(profile as ProfileRow);
-
     // Already completed — idempotent response
-    if ((profile as ProfileRow).onboarding_completed || currentStep >= 4) {
+    if ((profile as ProfileRow).onboarding_completed) {
       return json({
         reply: pick(PROMPTS.complete).replace("{name}", (profile as ProfileRow).name ?? ""),
         questionIndex: 4,
@@ -254,27 +252,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Start/resume: no message → return current question prompt ────────
+    // ── Start: no message → wipe old data & begin fresh ──────────────────
     if (message.length === 0) {
-      let reply: string;
-      switch (currentStep) {
-        case 0:
-          reply = pick(PROMPTS.greet);
-          break;
-        case 1:
-          reply = pick(PROMPTS.askBirthDate).replace("{name}", (profile as ProfileRow).name ?? "");
-          break;
-        case 2:
-          reply = pick(PROMPTS.askDatingStart);
-          break;
-        case 3:
-          reply = pick(PROMPTS.askHelpType);
-          break;
-        default:
-          reply = pick(PROMPTS.greet);
-      }
+      // Clear previously filled onboarding profile fields
+      await supabase
+        .from("profiles")
+        .update({
+          name: null,
+          birth_date: null,
+          dating_start_date: null,
+          help_focus: null,
+        })
+        .eq("id", userId);
 
-      // Persist the assistant greeting/resume message
+      // Delete old onboarding messages for a clean conversation
+      await supabase
+        .from("messages")
+        .delete()
+        .eq("user_id", userId)
+        .eq("conversation_type", "onboarding");
+
+      const reply = pick(PROMPTS.greet);
+
+      // Persist the fresh greeting
       await supabase.from("messages").insert({
         user_id: userId,
         role: "assistant",
@@ -284,10 +284,13 @@ Deno.serve(async (req) => {
 
       return json({
         reply,
-        questionIndex: currentStep,
+        questionIndex: 0,
         isComplete: false,
       });
     }
+
+    // For non-empty messages, derive step from current profile fields
+    const currentStep = deriveStep(profile as ProfileRow);
 
     // ── Process user answer against current step (MUST-3) ────────────────
     let validationResult: { valid: boolean; value: string; hint?: string };

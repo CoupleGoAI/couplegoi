@@ -4,7 +4,6 @@ import { useAuthStore } from '@store/authStore';
 import {
   getOnboardingStatus,
   sendOnboardingMessage,
-  fetchOnboardingHistory,
 } from '@data/onboardingApi';
 import * as authData from '@data/auth';
 import { sanitizeMessage } from '@domain/onboarding/validation';
@@ -60,7 +59,6 @@ export function useOnboarding(): UseOnboardingReturn {
   const isLoading = useOnboardingStore((s) => s.isLoading);
   const error = useOnboardingStore((s) => s.error);
   const addMessage = useOnboardingStore((s) => s.addMessage);
-  const setMessages = useOnboardingStore((s) => s.setMessages);
   const setIsComplete = useOnboardingStore((s) => s.setIsComplete);
   const setCurrentQuestion = useOnboardingStore((s) => s.setCurrentQuestion);
   const setLoading = useOnboardingStore((s) => s.setLoading);
@@ -152,7 +150,9 @@ export function useOnboarding(): UseOnboardingReturn {
     setLoading(false);
   }, [userId, setUser, setLoading, setError]);
 
-  // Initialize once on mount: check status, optionally restore history
+  const reset = useOnboardingStore((s) => s.reset);
+
+  // Initialize once on mount: check status, start fresh if not completed
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
@@ -166,28 +166,16 @@ export function useOnboarding(): UseOnboardingReturn {
           return;
         }
 
-        const { completed, currentQuestion: serverQuestion } = statusResult.data;
-        setCurrentQuestion(serverQuestion);
+        const { completed } = statusResult.data;
 
         if (completed) {
+          setCurrentQuestion(4);
           setIsComplete(true);
           return;
         }
 
-        // Resume mid-onboarding: restore conversation history
-        if (serverQuestion > 0 && userId) {
-          const historyResult = await fetchOnboardingHistory(userId);
-          if (historyResult.ok && historyResult.data.length > 0) {
-            setMessages(
-              historyResult.data.map((item) => ({
-                id: item.id,
-                role: item.role,
-                content: item.content,
-                createdAt: new Date(item.created_at).getTime(),
-              })),
-            );
-          }
-        }
+        // Always start fresh — reset store to clear any stale state
+        reset();
       } finally {
         setIsInitializing(false);
       }

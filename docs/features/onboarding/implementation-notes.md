@@ -36,4 +36,30 @@ Implemented the deterministic onboarding chat feature. After first login (`onboa
 8. Type a valid dating start date → tappable chips appear for help type
 9. Tap a chip (e.g. "Communication") → completion message + "Let's Go!" button
 10. Tap "Let's Go!" → profile refreshes → navigates to Main
-11. Kill app mid-onboarding, reopen → resumes at correct step with history restored
+11. Kill app mid-onboarding, reopen → onboarding restarts from scratch (fresh greeting)
+
+## Modification — Always restart onboarding when not completed
+
+### What changed
+
+When `onboarding_completed` is `false`, the onboarding flow now always starts from scratch instead of resuming mid-flow. The client no longer derives `currentQuestion` from profile fields or restores conversation history. The edge function, on receiving an empty message (start trigger), nulls out all four profile fields (`name`, `birth_date`, `dating_start_date`, `help_focus`) and deletes all prior onboarding messages for the user before inserting a fresh greeting. This ensures every incomplete onboarding attempt begins as if the user is brand new.
+
+### Files changed
+
+#### Modified
+
+- `src/data/onboardingApi.ts` — `getOnboardingStatus()` now only reads `onboarding_completed`; returns `currentQuestion: 0` when not completed, `4` when completed. No longer inspects profile fields.
+- `src/hooks/useOnboarding.ts` — Init effect calls `reset()` on the store when not completed instead of restoring history. Removed `fetchOnboardingHistory` import and unused `setMessages` selector.
+- `supabase/functions/onboarding-chat/index.ts` — On empty message with `onboarding_completed === false`: nulls profile fields, deletes old onboarding messages, then inserts fresh greeting. `deriveStep()` is now only used for non-empty messages (mid-flow answers). Completed check no longer uses `currentStep >= 4` fallback — only checks `onboarding_completed` flag.
+
+### Security re-check
+
+- **MUST-1**: Unchanged — JWT still verified via Auth REST API.
+- **MUST-2**: Step derivation still uses profile field nulls for non-empty messages; the reset ensures fields are null at start, so step 0 is always the first step.
+- **MUST-4**: Unchanged — `user_id` still from auth response only.
+- **MUST-5**: Unchanged — messages + profile update atomicity preserved for answer processing. The new reset (null fields + delete messages) happens before any new data is written; if it fails the function returns 500 and no partial state is introduced.
+- **MUST-7**: No new logging added.
+
+### Deferred observations
+
+- `fetchOnboardingHistory` in `onboardingApi.ts` is now unused by any consumer. Could be deleted if no other feature needs it.

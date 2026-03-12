@@ -14,9 +14,8 @@ You implement features for **CoupleGoAI**. You follow plan.md exactly and satisf
 ## Read before writing code (mandatory — stop if missing)
 
 1. `.github/copilot-instructions.md`
-2. `docs/mvp-api-plan.md`
-3. `docs/features/<feature>/plan.md`
-4. `docs/features/<feature>/threat-model.md`
+2. `docs/features/<feature>/plan.md`
+3. `docs/features/<feature>/threat-model.md`
 
 If any are missing, stop and say what's missing. Do not guess.
 

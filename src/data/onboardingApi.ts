@@ -42,32 +42,21 @@ export async function getOnboardingStatus(): Promise<
   try {
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('onboarding_completed, name, birth_date, dating_start_date, help_focus')
+      .select('onboarding_completed')
       .single();
 
     if (error || !profile) {
       return { ok: false, error: error?.message ?? 'No profile found' };
     }
 
-    const p = profile as {
-      onboarding_completed: boolean;
-      name: string | null;
-      birth_date: string | null;
-      dating_start_date: string | null;
-      help_focus: string | null;
-    };
-
-    let currentQuestion = 0;
-    if (p.name) currentQuestion = 1;
-    if (p.name && p.birth_date) currentQuestion = 2;
-    if (p.name && p.birth_date && p.dating_start_date) currentQuestion = 3;
-    if (p.name && p.birth_date && p.dating_start_date && p.help_focus) currentQuestion = 4;
+    const completed =
+      (profile as { onboarding_completed: boolean }).onboarding_completed ?? false;
 
     return {
       ok: true,
       data: {
-        completed: p.onboarding_completed ?? false,
-        currentQuestion,
+        completed,
+        currentQuestion: completed ? 4 : 0,
       },
     };
   } catch {

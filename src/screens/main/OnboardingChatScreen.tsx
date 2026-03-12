@@ -14,6 +14,13 @@ import type { ListRenderItemInfo } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  Easing,
+} from 'react-native-reanimated';
 import GradientButton from '@components/ui/GradientButton';
 import { ChatBubble } from '@components/chat/ChatBubble';
 import { TypingIndicator } from '@components/chat/TypingIndicator';
@@ -79,6 +86,16 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
   const hasTriggeredFirst = useRef(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Send button animation (scale + spin)
+  const sendScale = useSharedValue(1);
+  const sendRotation = useSharedValue(0);
+  const sendAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: sendScale.value },
+      { rotate: `${sendRotation.value}deg` },
+    ],
+  }));
+
   // Derived state
   const showChips = currentQuestion === 3 && !isComplete;
   const showInput = currentQuestion < 3 && !isComplete;
@@ -118,8 +135,17 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
     const trimmed = inputText.trim();
     if (!trimmed || isLoading || showTyping) return;
     setInputText('');
+    // Trigger send animation: scale pulse + 2 spins in ~400ms
+    sendScale.value = withSequence(
+      withTiming(1.25, { duration: 200, easing: Easing.out(Easing.cubic) }),
+      withTiming(1, { duration: 200, easing: Easing.in(Easing.cubic) }),
+    );
+    sendRotation.value = withSequence(
+      withTiming(720, { duration: 400, easing: Easing.out(Easing.quad) }),
+      withTiming(0, { duration: 1 }),
+    );
     void sendMessage(trimmed);
-  }, [inputText, isLoading, showTyping, sendMessage]);
+  }, [inputText, isLoading, showTyping, sendMessage, sendScale, sendRotation]);
 
   /** Handle chip selection for help type question */
   const handleChipSelect = useCallback(
@@ -277,7 +303,7 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
 
           {/* Text input bar — shown for questions 0–2 */}
           {showInput && (
-            <View className="flex-row items-end px-5 py-md border-t border-borderLight gap-md">
+            <View className="flex-row items-center px-5 py-md border-t border-borderLight gap-md">
               <TextInput
                 value={inputText}
                 onChangeText={setInputText}
@@ -292,24 +318,25 @@ export function OnboardingChatScreen(_props: OnboardingScreenProps): React.React
                 blurOnSubmit
                 editable={!isLoading && !showTyping}
               />
-              <TouchableOpacity
-                onPress={handleSend}
-                disabled={sendDisabled}
-                activeOpacity={0.75}
-                className="w-12 h-12 rounded-full overflow-hidden"
-                style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
-                accessibilityLabel="Send message"
-                accessibilityRole="button"
-              >
-                <LinearGradient
-                  colors={sendDisabled ? gradients.disabled : gradients.brand}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  className="flex-1 items-center justify-center"
+              <Animated.View style={sendAnimatedStyle}>
+                <TouchableOpacity
+                  onPress={handleSend}
+                  disabled={sendDisabled}
+                  activeOpacity={0.75}
+                  style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
+                  accessibilityLabel="Send message"
+                  accessibilityRole="button"
                 >
-                  <Ionicons name="arrow-up" size={20} color={colors.white} />
-                </LinearGradient>
-              </TouchableOpacity>
+                  <LinearGradient
+                    colors={sendDisabled ? gradients.disabled : gradients.brand}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.sendGradient}
+                  >
+                    <Ionicons name="heart" size={22} color={colors.white} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </Animated.View>
             </View>
           )}
         </KeyboardAvoidingView>
@@ -357,8 +384,12 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
 
-  // Send button — glow shadow (RN shadow object not expressible via className)
+  // Send button — circular with gradient glow
   sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden' as const,
     ...shadows.glowPrimary,
   },
 
@@ -367,5 +398,12 @@ const styles = StyleSheet.create({
     opacity: 0.5,
     shadowOpacity: 0,
     elevation: 0,
+  },
+
+  // Gradient fill inside the button
+  sendGradient: {
+    flex: 1,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
 });
