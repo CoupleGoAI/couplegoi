@@ -30,6 +30,7 @@ function mapUser(supabaseUser: {
     name: (supabaseUser.user_metadata?.['name'] as string) ?? null,
     avatarUrl: (supabaseUser.user_metadata?.['avatar_url'] as string) ?? null,
     onboardingCompleted: false,
+    coupleSetupCompleted: false,
     coupleId: null,
     createdAt: supabaseUser.created_at,
   };
@@ -155,7 +156,7 @@ export async function fetchProfile(userId: string): Promise<AuthResult<AuthUser>
     // Then hydrate from profiles table
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('name, avatar_url, onboarding_completed, couple_id')
+      .select('name, avatar_url, onboarding_completed, couple_id, dating_start_date, help_focus')
       .eq('id', userId)
       .single();
 
@@ -171,6 +172,9 @@ export async function fetchProfile(userId: string): Promise<AuthResult<AuthUser>
         name: (profile.name as string) ?? baseUser.name,
         avatarUrl: (profile.avatar_url as string) ?? baseUser.avatarUrl,
         onboardingCompleted: (profile.onboarding_completed as boolean) ?? false,
+        coupleSetupCompleted:
+          (profile.dating_start_date as string | null) !== null &&
+          (profile.help_focus as string | null) !== null,
         coupleId: (profile.couple_id as string) ?? null,
       },
     };

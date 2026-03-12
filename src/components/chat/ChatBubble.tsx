@@ -2,10 +2,16 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients, radii, spacing, fontFamilies, fontSize, fontWeight } from '@/theme/tokens';
-import type { OnboardingMessage } from '@store/onboardingStore';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: number;
+}
 
 interface ChatBubbleProps {
-  message: OnboardingMessage;
+  message: ChatMessage;
 }
 
 /** Formats a Unix-ms timestamp to "h:mm AM/PM" */

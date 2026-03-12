@@ -56,7 +56,7 @@ export async function getOnboardingStatus(): Promise<
       ok: true,
       data: {
         completed,
-        currentQuestion: completed ? 4 : 0,
+        currentQuestion: completed ? 2 : 0,
       },
     };
   } catch {
@@ -110,9 +110,7 @@ export async function sendOnboardingMessage(
     }
 
     const token = sessionData.session.access_token;
-    const url = `${SUPABASE_URL}/functions/v1/onboarding-chat`;
-
-    console.log('[onboardingApi] sendMessage →', { url, message, hasToken: !!token });
+    const url = `${SUPABASE_URL}/functions/v1/onboarding-profile`;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -124,20 +122,14 @@ export async function sendOnboardingMessage(
       body: JSON.stringify({ message }),
     });
 
-    console.log('[onboardingApi] response status:', response.status);
-
     const data = await response.json() as OnboardingResponse;
 
-    console.log('[onboardingApi] response body:', JSON.stringify(data));
-
     if (!response.ok || data.error) {
-      console.warn('[onboardingApi] error:', data.error ?? `HTTP ${response.status}`);
       return { ok: false, error: data.error ?? 'Request failed' };
     }
 
     return { ok: true, data };
-  } catch (err) {
-    console.error('[onboardingApi] network error:', err);
+  } catch {
     return { ok: false, error: 'Network error' };
   }
 }

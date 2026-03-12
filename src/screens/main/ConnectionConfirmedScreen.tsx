@@ -60,7 +60,7 @@ export const ConnectionConfirmedScreen: React.FC<ConnectionConfirmedScreenProps>
 
             {/* CTA */}
             <GradientButton
-              label="Enter the app 🎉"
+              label="Set up your couple profile 💕"
               onPress={handleEnter}
               variant="primary"
               size="lg"

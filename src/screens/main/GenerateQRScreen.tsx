@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import type { GenerateQRScreenProps } from '@navigation/types';
 import { usePairing } from '@hooks/usePairing';
+import { useAuthStore } from '@store/authStore';
 import GradientButton from '@components/ui/GradientButton';
 import { colors, spacing, textStyles, radii, shadows } from '@/theme/tokens';
 
@@ -25,6 +26,7 @@ function formatCountdown(seconds: number): string {
 export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
   ({ navigation }) => {
     const { token, expiresAt, isPending, error, generateToken } = usePairing();
+    const setPairingSkipped = useAuthStore((s) => s.setPairingSkipped);
     const [secondsLeft, setSecondsLeft] = useState<number>(0);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -56,6 +58,10 @@ export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
 
     const handleScanInstead = () => {
       navigation.navigate('ScanQR');
+    };
+
+    const handleSkip = () => {
+      setPairingSkipped(true);
     };
 
     return (
@@ -122,6 +128,9 @@ export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
             </Text>
             <TouchableOpacity onPress={handleScanInstead} activeOpacity={0.75}>
               <Text style={styles.toggleLink}>Scan partner&apos;s QR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleSkip} activeOpacity={0.75} style={styles.skipButton}>
+              <Text style={styles.skipText}>Skip for now</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -220,5 +229,13 @@ const styles = StyleSheet.create({
     ...textStyles.bodySm,
     color: colors.primary,
     fontWeight: '600',
+  },
+  skipButton: {
+    marginTop: spacing.md,
+  },
+  skipText: {
+    ...textStyles.bodySm,
+    color: colors.gray,
+    textDecorationLine: 'underline',
   },
 });

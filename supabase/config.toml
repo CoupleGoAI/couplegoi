@@ -5,11 +5,17 @@ enabled = false
 # JWT signing. The Supabase gateway only validates HS256, so it rejects all valid
 # user tokens. Each function handles auth internally via the Auth REST API instead.
 
-[functions.onboarding-chat]
+[functions.onboarding-profile]
 enabled = true
 verify_jwt = false
-import_map = "./functions/onboarding-chat/deno.json"
-entrypoint = "./functions/onboarding-chat/index.ts"
+import_map = "./functions/onboarding-profile/deno.json"
+entrypoint = "./functions/onboarding-profile/index.ts"
+
+[functions.couple-setup]
+enabled = true
+verify_jwt = false
+import_map = "./functions/couple-setup/deno.json"
+entrypoint = "./functions/couple-setup/index.ts"
 
 [functions.ai-chat]
 enabled = true

@@ -11,6 +11,7 @@ export interface AuthUser {
     name: string | null;
     avatarUrl: string | null;
     onboardingCompleted: boolean;
+    coupleSetupCompleted: boolean;
     coupleId: string | null;
     createdAt: string;
 }

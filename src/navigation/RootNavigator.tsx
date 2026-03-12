@@ -6,11 +6,12 @@ import { useAuthStore } from '@store/authStore';
 import { useAuth } from '@hooks/useAuth';
 import SplashScreen from '@screens/auth/SplashScreen';
 import AuthNavigator from '@navigation/AuthNavigator';
-import { OnboardingChatScreen } from '@screens/main/OnboardingChatScreen';
-import PlaceholderScreen from '@screens/main/PlaceholderScreen';
+import { OnboardingProfileScreen } from '@screens/main/OnboardingProfileScreen';
 import { GenerateQRScreen } from '@screens/main/GenerateQRScreen';
 import { ScanQRScreen } from '@screens/main/ScanQRScreen';
 import { ConnectionConfirmedScreen } from '@screens/main/ConnectionConfirmedScreen';
+import { CoupleSetupScreen } from '@screens/main/CoupleSetupScreen';
+import { HomeScreen } from '@screens/main/HomeScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -19,6 +20,8 @@ export default function RootNavigator() {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
     const onboardingCompleted = useAuthStore((s) => s.user?.onboardingCompleted ?? false);
     const coupleId = useAuthStore((s) => s.user?.coupleId ?? null);
+    const coupleSetupCompleted = useAuthStore((s) => s.user?.coupleSetupCompleted ?? false);
+    const pairingSkipped = useAuthStore((s) => s.pairingSkipped);
     const { initialize } = useAuth();
 
     useEffect(() => {
@@ -35,8 +38,8 @@ export default function RootNavigator() {
                 {!isAuthenticated ? (
                     <Stack.Screen name="Auth" component={AuthNavigator} />
                 ) : !onboardingCompleted ? (
-                    <Stack.Screen name="Onboarding" component={OnboardingChatScreen} />
-                ) : coupleId === null ? (
+                    <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} />
+                ) : coupleId === null && !pairingSkipped ? (
                     <>
                         <Stack.Screen name="GenerateQR" component={GenerateQRScreen} />
                         <Stack.Screen
@@ -50,8 +53,10 @@ export default function RootNavigator() {
                             options={{ animation: 'slide_from_right', gestureEnabled: false }}
                         />
                     </>
+                ) : coupleId !== null && !coupleSetupCompleted ? (
+                    <Stack.Screen name="CoupleSetup" component={CoupleSetupScreen} />
                 ) : (
-                    <Stack.Screen name="Main" component={PlaceholderScreen} />
+                    <Stack.Screen name="Home" component={HomeScreen} />
                 )}
             </Stack.Navigator>
         </NavigationContainer>

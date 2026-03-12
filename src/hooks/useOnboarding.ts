@@ -11,7 +11,7 @@ import type { OnboardingMessage } from '@store/onboardingStore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const TOTAL_ONBOARDING_QUESTIONS = 4;
+export const TOTAL_ONBOARDING_QUESTIONS = 2;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -169,7 +169,7 @@ export function useOnboarding(): UseOnboardingReturn {
         const { completed } = statusResult.data;
 
         if (completed) {
-          setCurrentQuestion(4);
+          setCurrentQuestion(2);
           setIsComplete(true);
           return;
         }

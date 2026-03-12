@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { useAuthStore } from '@store/authStore';
 import { useOnboardingStore } from '@store/onboardingStore';
 import { usePairingStore } from '@store/pairingStore';
+import { useCoupleSetupStore } from '@store/coupleSetupStore';
 import * as authData from '@data/auth';
 import { supabase } from '@data/supabase';
 
@@ -21,6 +22,7 @@ export function useAuth(): {
     const resetAuth = useAuthStore((s) => s.reset);
     const resetOnboarding = useOnboardingStore((s) => s.reset);
     const resetPairing = usePairingStore((s) => s.reset);
+    const resetCoupleSetup = useCoupleSetupStore((s) => s.reset);
 
     /**
      * Hydrate user from Supabase auth + profiles table.
@@ -43,6 +45,7 @@ export function useAuth(): {
                     name: null,
                     avatarUrl: null,
                     onboardingCompleted: false,
+                    coupleSetupCompleted: false,
                     coupleId: null,
                     createdAt: new Date().toISOString(),
                 });
@@ -80,11 +83,12 @@ export function useAuth(): {
                 resetAuth();
                 resetOnboarding();
                 resetPairing();
+                resetCoupleSetup();
             }
         });
 
         return () => subscription.unsubscribe();
-    }, [hydrateUser, resetAuth, resetOnboarding, resetPairing]);
+    }, [hydrateUser, resetAuth, resetOnboarding, resetPairing, resetCoupleSetup]);
 
     /** Sign up with email + password */
     const signUp = useCallback(
@@ -132,8 +136,9 @@ export function useAuth(): {
         resetAuth();
         resetOnboarding();
         resetPairing();
+        resetCoupleSetup();
         setLoading(false);
-    }, [setLoading, resetAuth, resetOnboarding, resetPairing]);
+    }, [setLoading, resetAuth, resetOnboarding, resetPairing, resetCoupleSetup]);
 
     return { initialize, signUp, signIn, signOut };
 }
