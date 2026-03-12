@@ -72,7 +72,7 @@ RootNavigator
   └─ onboardingCompleted → Pairing / CoupleSetup / Home
 ```
 
-On completion: edge function sets `onboarding_completed = true` → client calls `fetchProfile()` → `setUser()` with `onboardingCompleted: true` → RootNavigator transitions to pairing.
+On completion: edge function sets `onboarding_completed = true` and the onboarding screen shows a local success state. When the user taps `Let's Go!`, the client seeds the pairing store with `entryScreen = 'ScanQR'`, sets `onboardingCompleted: true` in auth state, and RootNavigator transitions into the pairing stack with Scan QR as the first step.
 
 ---
 

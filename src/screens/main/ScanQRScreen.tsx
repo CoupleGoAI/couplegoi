@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import type { ScanQRScreenProps } from '@navigation/types';
@@ -14,10 +14,14 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = React.memo(
   ({ navigation }) => {
     // MUST-NOT-7: camera permission requested only on this screen, not at app launch
     const [permission, requestPermission] = useCameraPermissions();
-    const { connect, isPending, error } = usePairing();
+    const { clearEntryScreen, connect, isPending, error } = usePairing();
     const { success: hapticSuccess, error: hapticError } = useHaptics();
     const scannedRef = useRef(false);
     const [localError, setLocalError] = useState<string | null>(null);
+
+    useEffect(() => {
+      clearEntryScreen();
+    }, [clearEntryScreen]);
 
     useEffect(() => {
       if (!permission?.granted) {
@@ -53,7 +57,12 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = React.memo(
     );
 
     const handleGenerateInstead = () => {
-      navigation.goBack();
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return;
+      }
+
+      navigation.replace('GenerateQR');
     };
 
     // Camera permission denied

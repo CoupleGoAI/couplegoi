@@ -13,26 +13,28 @@ Users connect with their partner by generating/scanning a QR code inside the app
 
 ### Flow
 
+0. User finishes onboarding and taps `Let's Go!` → app enters the pairing flow on `ScanQR`
 1. User A taps "Generate QR" → edge function creates pairing token with server-enforced TTL → QR displayed
 2. User B taps "Scan QR" → scans QR → sends token to edge function
 3. Edge function validates token (not expired, not used, both users unpaired) → creates Couple atomically
-4. Both users see confirmation → navigate to Home
+4. Both users see confirmation → only the confirmation CTA commits `coupleId` into auth state
+5. RootNavigator routes to Couple Setup only after pairing succeeds and `coupleId` is present
 
 ### Data access (Supabase-native — no REST endpoints)
 
-| Operation         | Method                                       | Notes                                                 |
-| ----------------- | -------------------------------------------- | ----------------------------------------------------- |
-| Generate token    | Edge function: `pairing-generate`            | Creates pairing token with server-enforced 5-min TTL, ensures user isn't already paired. Output: `{ token, expiresAt }` |
-| Connect (scan)    | Edge function: `pairing-connect`             | Validates token (not expired, not used, both unpaired), creates couple record atomically. Input: `{ token }`. Output: `{ couple, partner }` |
-| Disconnect        | Edge function: `pairing-disconnect`          | Deactivates couple, clears `couple_id` on both profiles atomically. Output: `{ ok }` |
-| Check status      | Direct DB query on `profiles` + `couples`    | Read `couple_id` from profile, join with `couples` and partner's profile. No edge function needed for read-only status |
+| Operation      | Method                                    | Notes                                                                                                                                       |
+| -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Generate token | Edge function: `pairing-generate`         | Creates pairing token with server-enforced 5-min TTL, ensures user isn't already paired. Output: `{ token, expiresAt }`                     |
+| Connect (scan) | Edge function: `pairing-connect`          | Validates token (not expired, not used, both unpaired), creates couple record atomically. Input: `{ token }`. Output: `{ couple, partner }` |
+| Disconnect     | Edge function: `pairing-disconnect`       | Deactivates couple, clears `couple_id` on both profiles atomically. Output: `{ ok }`                                                        |
+| Check status   | Direct DB query on `profiles` + `couples` | Read `couple_id` from profile, join with `couples` and partner's profile. No edge function needed for read-only status                      |
 
 Edge functions are used for generate/connect/disconnect because these operations require atomic multi-table writes and server-enforced security checks that cannot be safely delegated to the client.
 
 ### State
 
 - `authStore` updates: `coupleId` populated on successful connection, cleared on disconnect
-- `pairingStore` (new, ephemeral): `token`, `expiresAt`, `isPending`, `error`
+- `pairingStore` (new, ephemeral): `token`, `expiresAt`, `entryScreen`, `isPending`, `error`
 
 ## Done when
 
@@ -48,6 +50,7 @@ Edge functions are used for generate/connect/disconnect because these operations
 - QR contains only the pairing token string — no PII
 - Camera permission requested only when user navigates to Scan screen (not on app start)
 - Existing GenerateQR/ScanQR/ConnectionConfirmed screens exist but need wiring to real backend
+- Onboarding completion should drop the user directly into `ScanQR`; `GenerateQR` remains one tap away from the scan screen
 - Show clear error states: token expired, already paired, invalid QR, network error
 - Haptic feedback on successful scan
 - The pairing flow is part of onboarding (after AI onboarding) but also accessible from Profile for users who skipped or disconnected

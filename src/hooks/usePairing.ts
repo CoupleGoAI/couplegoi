@@ -11,6 +11,7 @@ export interface UsePairingReturn {
   expiresAt: string | null;
   isPending: boolean;
   error: string | null;
+  clearEntryScreen: () => void;
   generateToken: () => Promise<void>;
   connect: (rawQR: string) => Promise<{ partnerName: string | null; coupleId: string } | null>;
   disconnect: () => Promise<void>;
@@ -23,6 +24,7 @@ export function usePairing(): UsePairingReturn {
   const expiresAt = usePairingStore((s) => s.expiresAt);
   const isPending = usePairingStore((s) => s.isPending);
   const error = usePairingStore((s) => s.error);
+  const setEntryScreen = usePairingStore((s) => s.setEntryScreen);
   const setToken = usePairingStore((s) => s.setToken);
   const setExpiresAt = usePairingStore((s) => s.setExpiresAt);
   const setPending = usePairingStore((s) => s.setPending);
@@ -74,12 +76,14 @@ export function usePairing(): UsePairingReturn {
         return null;
       }
 
+      resetPairing();
+
       return {
         partnerName: result.data.partner.name,
         coupleId: result.data.couple.id,
       };
     },
-    [setPending, setError],
+    [resetPairing, setPending, setError],
   );
 
   /** Disconnect from the current partner and reset local state. */
@@ -103,5 +107,9 @@ export function usePairing(): UsePairingReturn {
     resetPairing();
   }, [setPending, setError, user, setUser, resetPairing]);
 
-  return { token, expiresAt, isPending, error, generateToken, connect, disconnect };
+  const clearEntryScreen = useCallback((): void => {
+    setEntryScreen(null);
+  }, [setEntryScreen]);
+
+  return { token, expiresAt, isPending, error, clearEntryScreen, generateToken, connect, disconnect };
 }

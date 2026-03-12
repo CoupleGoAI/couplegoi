@@ -76,7 +76,7 @@ export function OnboardingProfileScreen(_props: OnboardingProfileScreenProps): R
         error,
         sendMessage,
         isInitializing,
-        retryComplete,
+        startPairing,
     } = useOnboarding();
 
     const [inputText, setInputText] = useState('');
@@ -194,8 +194,8 @@ export function OnboardingProfileScreen(_props: OnboardingProfileScreenProps): R
                             </View>
                         )}
                         <GradientButton
-                            label={isLoading ? 'Connecting…' : "Let's Go!"}
-                            onPress={() => { void retryComplete(); }}
+                            label={isLoading ? 'Starting pairing…' : "Let's Go!"}
+                            onPress={() => { void startPairing(); }}
                             size="lg"
                             fullWidth
                             loading={isLoading}

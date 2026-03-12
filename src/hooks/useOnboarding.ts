@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOnboardingStore } from '@store/onboardingStore';
 import { useAuthStore } from '@store/authStore';
+import { usePairingStore } from '@store/pairingStore';
 import {
   getOnboardingStatus,
   sendOnboardingMessage,
@@ -24,7 +25,7 @@ export interface UseOnboardingReturn {
   error: string | null;
   sendMessage: (text: string) => Promise<void>;
   isInitializing: boolean;
-  retryComplete: () => Promise<void>;
+  startPairing: () => Promise<void>;
 }
 
 // ─── ID Helper ────────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ function generateMessageId(prefix: string): string {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * Orchestrates the AI onboarding conversation.
+ * Orchestrates the onboarding conversation.
  *
  * On mount:
  *   1. Fetches onboarding status from the API.
@@ -47,7 +48,8 @@ function generateMessageId(prefix: string): string {
  *   - Adds a user bubble (non-empty text only).
  *   - Calls the backend AI endpoint.
  *   - Adds the AI reply bubble.
- *   - On completion, refreshes the auth profile so navigation updates reactively.
+ *   - On completion, leaves the user on the completion screen.
+ *   - The completion CTA promotes onboarding state into auth + pairing stores.
  */
 export function useOnboarding(): UseOnboardingReturn {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -64,8 +66,10 @@ export function useOnboarding(): UseOnboardingReturn {
   const setLoading = useOnboardingStore((s) => s.setLoading);
   const setError = useOnboardingStore((s) => s.setError);
 
+  const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
-  const userId = useAuthStore((s) => s.user?.id);
+  const setPairingSkipped = useAuthStore((s) => s.setPairingSkipped);
+  const setPairingEntryScreen = usePairingStore((s) => s.setEntryScreen);
 
   // Prevent double-initialization (React Strict Mode / fast refresh)
   const hasInitialized = useRef(false);
@@ -117,38 +121,37 @@ export function useOnboarding(): UseOnboardingReturn {
       setCurrentQuestion(questionIndex);
       setIsComplete(complete);
       setLoading(false);
-
-      // Refresh auth profile so RootNavigator transitions reactively
-      if (complete && userId) {
-        const profileResult = await authData.fetchProfile(userId);
-        if (profileResult.ok) {
-          setUser(profileResult.data);
-        }
-      }
     },
     // Zustand actions are stable references; userId is stable post-auth
-    [addMessage, setLoading, setError, setCurrentQuestion, setIsComplete, setUser, userId],
+    [addMessage, setLoading, setError, setCurrentQuestion, setIsComplete],
   );
 
   /**
-   * Retry fetching the auth profile after completion — used when the initial
-   * profile refresh failed but onboarding is complete in the store.
+   * Promote onboarding completion into auth state and enter the pairing flow.
+   * The edge function has already persisted onboarding_completed=true, so a
+   * local auth-store update is a reliable fallback if profile hydration fails.
    */
-  const retryComplete = useCallback(async (): Promise<void> => {
-    if (!userId) {
+  const startPairing = useCallback(async (): Promise<void> => {
+    if (!user) {
       setError('Session error. Please sign out and back in.');
       return;
     }
+
     setLoading(true);
     setError(null);
-    const profileResult = await authData.fetchProfile(userId);
+
+    setPairingSkipped(false);
+    setPairingEntryScreen('ScanQR');
+
+    const profileResult = await authData.fetchProfile(user.id);
     if (profileResult.ok) {
-      setUser(profileResult.data);
+      setUser({ ...profileResult.data, onboardingCompleted: true });
     } else {
-      setError('Could not connect. Please try again.');
+      setUser({ ...user, onboardingCompleted: true });
     }
+
     setLoading(false);
-  }, [userId, setUser, setLoading, setError]);
+  }, [user, setError, setLoading, setPairingEntryScreen, setPairingSkipped, setUser]);
 
   const reset = useOnboardingStore((s) => s.reset);
 
@@ -194,6 +197,6 @@ export function useOnboarding(): UseOnboardingReturn {
     error,
     sendMessage,
     isInitializing,
-    retryComplete,
+    startPairing,
   };
 }

@@ -22,7 +22,8 @@ Asked one at a time, in this order:
 - **OnboardingProfileScreen** — full-screen chat UI, no tabs, no back, no skip
 - Reuses the same chat bubble components as the main AI chat feature
 - Shows a **typing indicator** (300–600ms delay, pure client-side) before each assistant message
-- After completion: navigates to partner connection flow (GenerateQR/ScanQR)
+- After completion: shows a local success state with a `Let's Go!` CTA that starts partner connection
+- `Let's Go!` marks onboarding complete in client auth state and enters the QR scan flow immediately
 
 ---
 
@@ -30,7 +31,8 @@ Asked one at a time, in this order:
 
 1. Assistant greets user → asks first name
 2. User replies → validate name → ask birth date
-3. User replies → parse/validate birth date → sets `onboarding_completed=true` → navigate to pairing
+3. User replies → parse/validate birth date → sets `onboarding_completed=true` → show completion state
+4. User taps `Let's Go!` → app enters the QR scan flow; Generate QR remains available from the scan screen back action
 
 If an answer is empty/invalid, assistant re-asks the same question with a friendly hint (varied phrasing).
 
@@ -99,4 +101,5 @@ Each step has 2–3 prompt variants and 2 re-ask variants.
 - [ ] Empty/invalid answers get a friendly re-ask (varied phrasing)
 - [ ] Onboarding cannot be skipped or backed out of
 - [ ] On completion, profile fields are saved and `onboarding_completed=true`
-- [ ] Navigates to pairing screen after completion
+- [ ] Completion CTA reliably opens the QR scan pairing flow
+- [ ] Couple setup is not entered until pairing succeeds

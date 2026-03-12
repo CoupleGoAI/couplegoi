@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@navigation/types';
 import { useAuthStore } from '@store/authStore';
+import { usePairingStore } from '@store/pairingStore';
 import { useAuth } from '@hooks/useAuth';
 import SplashScreen from '@screens/auth/SplashScreen';
 import AuthNavigator from '@navigation/AuthNavigator';
@@ -22,7 +23,10 @@ export default function RootNavigator() {
     const coupleId = useAuthStore((s) => s.user?.coupleId ?? null);
     const coupleSetupCompleted = useAuthStore((s) => s.user?.coupleSetupCompleted ?? false);
     const pairingSkipped = useAuthStore((s) => s.pairingSkipped);
+    const pairingEntryScreen = usePairingStore((s) => s.entryScreen);
     const { initialize } = useAuth();
+
+    const shouldStartPairingOnScan = pairingEntryScreen === 'ScanQR';
 
     useEffect(() => {
         void initialize();
@@ -40,19 +44,35 @@ export default function RootNavigator() {
                 ) : !onboardingCompleted ? (
                     <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} />
                 ) : coupleId === null && !pairingSkipped ? (
-                    <>
-                        <Stack.Screen name="GenerateQR" component={GenerateQRScreen} />
-                        <Stack.Screen
-                            name="ScanQR"
-                            component={ScanQRScreen}
-                            options={{ animation: 'slide_from_right' }}
-                        />
-                        <Stack.Screen
-                            name="ConnectionConfirmed"
-                            component={ConnectionConfirmedScreen}
-                            options={{ animation: 'slide_from_right', gestureEnabled: false }}
-                        />
-                    </>
+                    shouldStartPairingOnScan ? (
+                        <>
+                            <Stack.Screen
+                                name="ScanQR"
+                                component={ScanQRScreen}
+                                options={{ animation: 'slide_from_right' }}
+                            />
+                            <Stack.Screen name="GenerateQR" component={GenerateQRScreen} />
+                            <Stack.Screen
+                                name="ConnectionConfirmed"
+                                component={ConnectionConfirmedScreen}
+                                options={{ animation: 'slide_from_right', gestureEnabled: false }}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <Stack.Screen name="GenerateQR" component={GenerateQRScreen} />
+                            <Stack.Screen
+                                name="ScanQR"
+                                component={ScanQRScreen}
+                                options={{ animation: 'slide_from_right' }}
+                            />
+                            <Stack.Screen
+                                name="ConnectionConfirmed"
+                                component={ConnectionConfirmedScreen}
+                                options={{ animation: 'slide_from_right', gestureEnabled: false }}
+                            />
+                        </>
+                    )
                 ) : coupleId !== null && !coupleSetupCompleted ? (
                     <Stack.Screen name="CoupleSetup" component={CoupleSetupScreen} />
                 ) : (

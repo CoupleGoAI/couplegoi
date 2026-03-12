@@ -39,3 +39,22 @@ Split from the original `onboarding` feature. Now collects only name + birth dat
 - `docs/edge-functions/onboarding-chat.md` still references the old function name — should be renamed to `onboarding-profile.md`.
 - `fetchOnboardingHistory` in `onboardingApi.ts` is unused by any consumer. Could be deleted.
 - `PlaceholderScreen.tsx` is no longer referenced from the navigator (replaced by `HomeScreen`). Could be deleted.
+
+## Modification — Completion CTA starts pairing
+
+### What changed
+
+The onboarding completion screen now owns the transition into pairing instead of relying on an immediate auth-profile refresh when the second answer is submitted. Tapping `Let's Go!` marks onboarding complete in local auth state, seeds the pairing flow to open on `ScanQR`, and lets RootNavigator move into pairing reliably even if profile hydration is slow.
+
+### Files changed
+
+#### Modified
+
+- `docs/features/onboarding-profile/spec.md` — clarified that the completion CTA starts the QR scan flow
+- `docs/features/onboarding-profile/plan.md` — updated the navigation handoff from onboarding into pairing
+- `src/hooks/useOnboarding.ts` — removed auto-transition on message completion and added CTA-driven pairing start logic
+- `src/screens/main/OnboardingProfileScreen.tsx` — wired `Let's Go!` to the new pairing-start action
+
+### Security re-check
+
+No security-critical paths modified.

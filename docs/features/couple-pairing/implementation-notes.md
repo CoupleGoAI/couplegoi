@@ -59,3 +59,24 @@ Implemented the couple-pairing QR code feature end-to-end: three edge functions 
    - Scan own QR → "You can't pair with yourself!"
    - Scan arbitrary text → "That doesn't look like a valid CoupleGoAI code."
    - Deny camera → permission denied screen with "Go back" option
+
+## Modification — Scan-first handoff from onboarding
+
+### What changed
+
+The pairing flow now accepts a scan-first entry seeded by onboarding completion. Root navigation reads an ephemeral `entryScreen` from `pairingStore`, starts on `ScanQR` when onboarding requests it, clears that preference once scanning begins, and still keeps `coupleId` unset until the pairing success path confirms the connection.
+
+### Files changed
+
+#### Modified
+
+- `docs/features/couple-pairing/spec.md` — documented the scan-first onboarding handoff and couple-setup gating
+- `docs/features/couple-pairing/plan.md` — added pairing entry-screen state and onboarding handoff flow
+- `src/store/pairingStore.ts` — added ephemeral `entryScreen` state for scan-first pairing entry
+- `src/hooks/usePairing.ts` — clears transient pairing state after a successful connect and exposes entry-screen clearing
+- `src/navigation/RootNavigator.tsx` — starts the pairing stack on `ScanQR` when onboarding seeds that entry
+- `src/screens/main/ScanQRScreen.tsx` — clears the one-shot scan-first preference and replaces to `GenerateQR` when scan is the initial route
+
+### Security re-check
+
+No security-critical paths modified.

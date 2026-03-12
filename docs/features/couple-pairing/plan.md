@@ -16,18 +16,18 @@ Users connect with their partner by generating/scanning a QR code. One partner g
 
 ### Already implemented
 
-| File | Layer | Status |
-|---|---|---|
-| `supabase/schemas/03_couples.sql` | DB | ✅ Table + RLS |
-| `supabase/schemas/04_pairing_tokens.sql` | DB | ✅ Table + RLS |
-| `supabase/schemas/06_functions.sql` | DB | ✅ `get_my_couple_id()`, `get_partner_id()` helpers |
-| `supabase/config.toml` | Config | ✅ All three functions registered, `verify_jwt = false` |
-| `supabase/functions/pairing-generate/index.ts` | Edge Function | ⚠️ Stub only |
-| `supabase/functions/pairing-connect/index.ts` | Edge Function | ⚠️ Stub only |
-| `supabase/functions/pairing-disconnect/index.ts` | Edge Function | ⚠️ Stub only |
-| `src/data/apiClient.ts` | Data | ✅ `invokeEdgeFunction()`, `supabaseQuery()` |
-| `src/types/index.ts` | Types | ✅ `AuthUser.coupleId` exists |
-| `src/data/auth.ts` | Data | ✅ `fetchProfile()` reads `couple_id` |
+| File                                             | Layer         | Status                                                  |
+| ------------------------------------------------ | ------------- | ------------------------------------------------------- |
+| `supabase/schemas/03_couples.sql`                | DB            | ✅ Table + RLS                                          |
+| `supabase/schemas/04_pairing_tokens.sql`         | DB            | ✅ Table + RLS                                          |
+| `supabase/schemas/06_functions.sql`              | DB            | ✅ `get_my_couple_id()`, `get_partner_id()` helpers     |
+| `supabase/config.toml`                           | Config        | ✅ All three functions registered, `verify_jwt = false` |
+| `supabase/functions/pairing-generate/index.ts`   | Edge Function | ⚠️ Stub only                                            |
+| `supabase/functions/pairing-connect/index.ts`    | Edge Function | ⚠️ Stub only                                            |
+| `supabase/functions/pairing-disconnect/index.ts` | Edge Function | ⚠️ Stub only                                            |
+| `src/data/apiClient.ts`                          | Data          | ✅ `invokeEdgeFunction()`, `supabaseQuery()`            |
+| `src/types/index.ts`                             | Types         | ✅ `AuthUser.coupleId` exists                           |
+| `src/data/auth.ts`                               | Data          | ✅ `fetchProfile()` reads `couple_id`                   |
 
 ### New files
 
@@ -67,8 +67,8 @@ MODIFIED:
 // Request: (no body)
 // Response:
 interface PairingGenerateResponse {
-  token: string;      // opaque token string for QR
-  expiresAt: string;  // ISO timestamp
+  token: string; // opaque token string for QR
+  expiresAt: string; // ISO timestamp
 }
 ```
 
@@ -124,7 +124,8 @@ interface CoupleStatus {
 ```ts
 interface PairingState {
   token: string | null;
-  expiresAt: string | null;  // ISO timestamp
+  expiresAt: string | null; // ISO timestamp
+  entryScreen: "GenerateQR" | "ScanQR" | null;
   isPending: boolean;
   error: string | null;
 }
@@ -177,6 +178,18 @@ User taps "Generate QR"
   → QR rendered from token string
   → Countdown timer from expiresAt
   → On expiry → "Regenerate" button → same flow
+```
+
+### Onboarding handoff
+
+```
+User finishes onboarding and taps "Let's Go!"
+  → useOnboarding.startPairing()
+    → pairingStore.setEntryScreen('ScanQR')
+    → authStore.setUser({ ...user, onboardingCompleted: true })
+  → RootNavigator re-evaluates auth state
+  → Pairing stack mounts with ScanQR as the first screen
+  → Back action on ScanQR replaces to GenerateQR so either pairing role remains available
 ```
 
 ### Scan QR (connect)
@@ -245,6 +258,7 @@ User taps "Disconnect" on PlaceholderScreen (Profile section)
 interface PairingState {
   token: string | null;
   expiresAt: string | null;
+  entryScreen: "GenerateQR" | "ScanQR" | null;
   isPending: boolean;
   error: string | null;
 }
@@ -252,6 +266,7 @@ interface PairingState {
 interface PairingActions {
   setToken: (token: string | null) => void;
   setExpiresAt: (expiresAt: string | null) => void;
+  setEntryScreen: (screen: "GenerateQR" | "ScanQR" | null) => void;
   setPending: (v: boolean) => void;
   setError: (e: string | null) => void;
   reset: () => void;
@@ -292,7 +307,9 @@ New routes added to `RootStackParamList`:
 ```ts
 GenerateQR: undefined;
 ScanQR: undefined;
-ConnectionConfirmed: { partnerName: string | null };
+ConnectionConfirmed: {
+  partnerName: string | null;
+}
 ```
 
 The pairing screens are shown as a group when `onboardingCompleted === true && coupleId === null`. A tab or toggle lets the user choose between Generate and Scan. On connection, navigation proceeds to ConnectionConfirmed, then to Main.
