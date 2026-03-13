@@ -193,25 +193,34 @@ Deno.serve(async (req) => {
 
         // ── Start: no message → wipe old data & begin fresh ──────────────────
         if (message.length === 0) {
-            await supabase
+            const { error: resetProfileError } = await supabase
                 .from("profiles")
                 .update({ dating_start_date: null, help_focus: null })
                 .eq("id", userId);
+            if (resetProfileError) {
+                return json({ error: "Failed to reset couple setup profile" }, 500);
+            }
 
-            await supabase
+            const { error: deleteMessagesError } = await supabase
                 .from("messages")
                 .delete()
                 .eq("user_id", userId)
                 .eq("conversation_type", "couple_setup");
+            if (deleteMessagesError) {
+                return json({ error: "Failed to clear previous couple setup messages" }, 500);
+            }
 
             const reply = pick(PROMPTS.greet);
 
-            await supabase.from("messages").insert({
+            const { error: insertGreetingError } = await supabase.from("messages").insert({
                 user_id: userId,
                 role: "assistant",
                 content: reply,
                 conversation_type: "couple_setup",
             });
+            if (insertGreetingError) {
+                return json({ error: "Failed to save greeting message" }, 500);
+            }
 
             return json({ reply, questionIndex: 0, isComplete: false });
         }

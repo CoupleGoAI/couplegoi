@@ -9,4 +9,4 @@
 create type public.message_role as enum ('user', 'assistant');
 
 -- The context a message belongs to.
-create type public.conversation_type as enum ('chat', 'onboarding');
+create type public.conversation_type as enum ('chat', 'onboarding', 'couple_setup');
