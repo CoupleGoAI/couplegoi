@@ -56,7 +56,7 @@ erDiagram
         uuid user_id FK "→ profiles.id"
         message_role role "user | assistant"
         text content
-        conversation_type conversation_type "chat | onboarding"
+        conversation_type conversation_type "chat | onboarding | couple_setup"
         timestamptz created_at
     }
 
@@ -87,7 +87,7 @@ erDiagram
 | Type                | Values               | Used In                      |
 | ------------------- | -------------------- | ---------------------------- |
 | `message_role`      | `user`, `assistant`  | `messages.role`              |
-| `conversation_type` | `chat`, `onboarding` | `messages.conversation_type` |
+| `conversation_type` | `chat`, `onboarding`, `couple_setup` | `messages.conversation_type` |
 
 ## Functions & Triggers
 
