@@ -80,3 +80,55 @@ The pairing flow now accepts a scan-first entry seeded by onboarding completion.
 ### Security re-check
 
 No security-critical paths modified.
+
+## Modification — Pairing fallback code + unused token cleanup
+
+### What changed
+
+Added a deterministic 6-character uppercase fallback code under the QR on Generate QR, derived from the active token so it always rotates together with QR regeneration, and tightened pairing token lifecycle handling by deleting stale/previous unused token rows in edge functions to avoid lingering unscanned entries.
+
+### Files changed
+
+#### Modified
+
+- `src/screens/main/GenerateQRScreen.tsx` — added 6-character uppercase fallback code rendering under QR and bound it to the current token lifecycle.
+- `supabase/functions/pairing-generate/index.ts` — now deletes expired unused tokens and clears previous unused tokens for the creator before issuing a fresh token.
+- `supabase/functions/pairing-connect/index.ts` — now opportunistically prunes expired unused tokens and removes a token row when a scan hits an already-expired token.
+
+### Security re-check
+
+- MUST-1: JWT verification remains via Auth REST API (`/auth/v1/user`) in modified functions.
+- MUST-2: identity still sourced only from verified auth response; no client-supplied identity fields are trusted.
+- MUST-3: token generation remains `crypto.randomUUID()` with server-enforced 5-minute TTL.
+- MUST-4: connect path still enforces token existence, unused status, expiry check, self-pairing rejection, and both-users-unpaired checks.
+- MUST-5: connect path still persists couple/profile/token linkage in the existing ordered write flow with failure handling.
+- MUST-NOT-3: service-role clients are still created only after successful Auth REST verification.
+
+## Modification — Manual code entry + shared heart action button
+
+### What changed
+
+Refined the pairing UX by enlarging the displayed 6-character alternative code, adding direct manual code entry on the Scan QR screen with an inline heart submit control, and extending `pairing-connect` to resolve either a scanned QR token or a typed 6-character fallback code; the heart send control from onboarding chat was extracted into a reusable UI component and reused in Scan QR.
+
+### Files changed
+
+#### Modified
+
+- `src/screens/main/GenerateQRScreen.tsx` — increased the visual prominence of the alternative code under the QR.
+- `src/screens/main/ScanQRScreen.tsx` — reduced camera dominance and added 6-character manual code input with embedded heart submit button.
+- `supabase/functions/pairing-generate/index.ts` — added deterministic short-code derivation and collision-avoidance when allocating active pairing tokens.
+- `supabase/functions/pairing-connect/index.ts` — added support for resolving uppercase 6-character fallback codes in addition to full QR token payloads.
+- `src/screens/main/OnboardingProfileScreen.tsx` — replaced inline heart send implementation with reusable component usage.
+
+#### New
+
+- `src/components/ui/HeartActionButton.tsx` — reusable gradient heart action button extracted from onboarding chat input control.
+
+### Security re-check
+
+- MUST-1: both modified pairing edge functions still verify JWT via Auth REST API before any privileged action.
+- MUST-2: authenticated user identity remains derived only from verified auth response.
+- MUST-3: token generation remains crypto-random UUID with server-enforced expiry.
+- MUST-4: connect flow still enforces token validity, expiry, self-pairing guard, and unpaired-user checks before couple creation.
+- MUST-5: ordered persistence flow for couple/profile/token state remains unchanged after lookup enhancements.
+- MUST-7: QR payload still contains only the original token string (manual code is derived display/input only).

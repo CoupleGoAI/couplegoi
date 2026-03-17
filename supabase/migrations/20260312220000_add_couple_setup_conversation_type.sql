@@ -1,1 +1,0 @@
-alter type public.conversation_type add value if not exists 'couple_setup';

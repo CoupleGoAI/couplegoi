@@ -21,6 +21,19 @@ function formatCountdown(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+function deriveShortPairCode(token: string | null): string {
+  if (!token) {
+    return '000000';
+  }
+
+  let hash = 0;
+  for (let i = 0; i < token.length; i += 1) {
+    hash = ((hash * 31) + token.charCodeAt(i)) >>> 0;
+  }
+
+  return hash.toString(36).toUpperCase().padStart(6, '0').slice(-6);
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
@@ -29,6 +42,7 @@ export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
     const setPairingSkipped = useAuthStore((s) => s.setPairingSkipped);
     const [secondsLeft, setSecondsLeft] = useState<number>(0);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const shortCode = deriveShortPairCode(token);
 
     const isExpired = secondsLeft === 0 && token !== null;
 
@@ -104,6 +118,8 @@ export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
                 <Text style={styles.countdownText}>
                   Expires in {formatCountdown(secondsLeft)}
                 </Text>
+                <Text style={styles.shortCodeLabel}>Alternative code</Text>
+                <Text style={styles.shortCodeValue}>{shortCode}</Text>
               </View>
             ) : token && isExpired ? (
               <View style={styles.expiredBox}>
@@ -200,6 +216,15 @@ const styles = StyleSheet.create({
   countdownText: {
     ...textStyles.labelMd,
     color: colors.gray,
+  },
+  shortCodeLabel: {
+    ...textStyles.bodySm,
+    color: colors.gray,
+  },
+  shortCodeValue: {
+    ...textStyles.bodyLg,
+    color: colors.foreground,
+    letterSpacing: 2.5,
   },
   expiredBox: {
     alignItems: 'center',

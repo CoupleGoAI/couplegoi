@@ -58,3 +58,23 @@ The onboarding completion screen now owns the transition into pairing instead of
 ### Security re-check
 
 No security-critical paths modified.
+
+## Modification — Extract heart send control to shared UI component
+
+### What changed
+
+The chat send heart control previously implemented inline in onboarding profile chat was extracted into a reusable `HeartActionButton` UI component so it can be reused consistently by other chat-like inputs (including pairing manual code entry) without duplicating gradient/icon button logic.
+
+### Files changed
+
+#### Modified
+
+- `src/screens/main/OnboardingProfileScreen.tsx` — now uses `HeartActionButton` instead of inline heart-button view styles/markup.
+
+#### New
+
+- `src/components/ui/HeartActionButton.tsx` — reusable heart action button with disabled styling and size variants.
+
+### Security re-check
+
+No security-critical paths modified.

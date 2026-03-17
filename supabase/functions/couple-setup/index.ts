@@ -1,15 +1,5 @@
 // =============================================================================
 // couple-setup — Deterministic chat collecting dating start date + help focus
-//
-// Triggered after successful pairing. Mandatory — cannot be skipped.
-//
-// - Auth: JWT verified via Auth REST API (ES256 compatible) — MUST-1
-// - Step derivation from profile fields (null = unanswered) — MUST-2
-// - All validation/normalization server-side — MUST-3
-// - user_id from auth response only — MUST-4
-// - Atomic message + profile persistence — MUST-5
-// - chrono-node for date parsing
-// - Service role client (identity verified via Auth REST API first)
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -28,6 +18,27 @@ function json(body: unknown, status = 200): Response {
         status,
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
+}
+
+function errorResponse(error: string, status = 500, details?: unknown): Response {
+    return json(
+        {
+            error,
+            ...(details ? { details } : {}),
+        },
+        status,
+    );
+}
+
+function logError(label: string, error: unknown, extra?: Record<string, unknown>) {
+    console.error(
+        JSON.stringify({
+            label,
+            error,
+            extra,
+            ts: new Date().toISOString(),
+        }),
+    );
 }
 
 // ─── Help focus canonical set ────────────────────────────────────────────────
@@ -78,6 +89,7 @@ function validateDatingStartDate(
     birthDate: string,
 ): { valid: boolean; value: string; hint?: string } {
     const parsed = chrono.parseDate(input);
+
     if (!parsed) {
         return { valid: false, value: "", hint: pick(PROMPTS.reaskDatingStart) };
     }
@@ -101,13 +113,15 @@ function validateDatingStartDate(
 
 function validateHelpFocus(input: string): { valid: boolean; value: string; hint?: string } {
     const normalized = input.trim().toLowerCase().replace(/\s+/g, "_");
+
     if (!HELP_FOCUS_VALUES.has(normalized)) {
         return { valid: false, value: "", hint: pick(PROMPTS.reaskHelpType) };
     }
+
     return { valid: true, value: normalized };
 }
 
-// ─── Step derivation from profile (MUST-2) ───────────────────────────────────
+// ─── Step derivation from profile ────────────────────────────────────────────
 
 interface ProfileRow {
     birth_date: string | null;
@@ -118,7 +132,25 @@ interface ProfileRow {
 function deriveStep(profile: ProfileRow): number {
     if (!profile.dating_start_date) return 0;
     if (!profile.help_focus) return 1;
-    return 2; // all answered
+    return 2;
+}
+
+// ─── DB helpers ──────────────────────────────────────────────────────────────
+
+async function insertMessages(
+    supabase: ReturnType<typeof createClient>,
+    userId: string,
+    messages: Array<{ role: "user" | "assistant"; content: string }>,
+) {
+    const payload = messages.map((m) => ({
+        user_id: userId,
+        role: m.role,
+        content: m.content,
+        conversation_type: "couple_setup",
+    }));
+
+    const { error } = await supabase.from("messages").insert(payload);
+    return { error };
 }
 
 // ─── Main handler ────────────────────────────────────────────────────────────
@@ -129,31 +161,43 @@ Deno.serve(async (req) => {
     }
 
     try {
-        // ── Auth: verify JWT via Auth REST API (MUST-1) ──────────────────────
         const authHeader = req.headers.get("Authorization");
         if (!authHeader) {
-            return json({ error: "Missing authorization" }, 401);
+            return errorResponse("Missing authorization", 401);
         }
 
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+        if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+            logError("ENV_MISSING", {
+                hasSupabaseUrl: !!supabaseUrl,
+                hasAnonKey: !!anonKey,
+                hasServiceRoleKey: !!serviceRoleKey,
+            });
+
+            return errorResponse("Server configuration error", 500);
+        }
 
         const authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-            headers: { Authorization: authHeader, apikey: anonKey },
+            headers: {
+                Authorization: authHeader,
+                apikey: anonKey,
+            },
         });
 
         if (!authResponse.ok) {
-            return json({ error: "Authentication failed" }, 401);
+            const authText = await authResponse.text();
+            logError("AUTH_FAILED", authText, { status: authResponse.status });
+            return errorResponse("Authentication failed", 401);
         }
 
         const authUser = (await authResponse.json()) as { id: string };
-        const userId = authUser.id; // MUST-4: user_id from auth only
+        const userId = authUser.id;
 
-        // ── Service role client — identity verified via Auth REST API above ──
-        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-        // ── Parse request body ───────────────────────────────────────────────
         let message = "";
         try {
             const body = await req.json();
@@ -161,10 +205,9 @@ Deno.serve(async (req) => {
                 message = body.message.trim().slice(0, 500);
             }
         } catch {
-            // No body or invalid JSON — treat as empty (start/resume)
+            message = "";
         }
 
-        // ── Fetch current profile (MUST-2: derive step from profile) ────────
         const { data: profile, error: profileError } = await supabase
             .from("profiles")
             .select("birth_date, dating_start_date, help_focus")
@@ -172,17 +215,16 @@ Deno.serve(async (req) => {
             .single();
 
         if (profileError || !profile) {
-            return json({ error: "Profile not found" }, 404);
+            logError("PROFILE_FETCH_FAILED", profileError, { userId });
+            return errorResponse("Profile not found", 404, profileError);
         }
 
         const typedProfile = profile as ProfileRow;
 
-        // birth_date is required (set during onboarding-profile)
         if (!typedProfile.birth_date) {
-            return json({ error: "Onboarding profile not complete" }, 400);
+            return errorResponse("Onboarding profile not complete", 400);
         }
 
-        // Already completed — idempotent response
         if (typedProfile.dating_start_date && typedProfile.help_focus) {
             return json({
                 reply: pick(PROMPTS.complete),
@@ -191,108 +233,171 @@ Deno.serve(async (req) => {
             });
         }
 
-        // ── Start: no message → wipe old data & begin fresh ──────────────────
+        // ── Start flow ──────────────────────────────────────────────────────────
         if (message.length === 0) {
             const { error: resetProfileError } = await supabase
                 .from("profiles")
-                .update({ dating_start_date: null, help_focus: null })
+                .update({
+                    dating_start_date: null,
+                    help_focus: null,
+                })
                 .eq("id", userId);
-            if (resetProfileError) {
-                return json({ error: "Failed to reset couple setup profile" }, 500);
-            }
 
-            const { error: deleteMessagesError } = await supabase
-                .from("messages")
-                .delete()
-                .eq("user_id", userId)
-                .eq("conversation_type", "couple_setup");
-            if (deleteMessagesError) {
-                return json({ error: "Failed to clear previous couple setup messages" }, 500);
+            if (resetProfileError) {
+                logError("RESET_PROFILE_FAILED", resetProfileError, { userId });
+                return errorResponse("Failed to reset couple setup profile", 500, resetProfileError);
             }
 
             const reply = pick(PROMPTS.greet);
 
-            const { error: insertGreetingError } = await supabase.from("messages").insert({
-                user_id: userId,
-                role: "assistant",
-                content: reply,
-                conversation_type: "couple_setup",
-            });
+            const { error: insertGreetingError } = await insertMessages(supabase, userId, [
+                { role: "assistant", content: reply },
+            ]);
+
             if (insertGreetingError) {
-                return json({ error: "Failed to save greeting message" }, 500);
+                logError("INSERT_GREETING_FAILED", insertGreetingError, { userId, reply });
+                return errorResponse("Failed to save greeting message", 500, insertGreetingError);
             }
 
-            return json({ reply, questionIndex: 0, isComplete: false });
+            return json({
+                reply,
+                questionIndex: 0,
+                isComplete: false,
+            });
         }
 
-        // For non-empty messages, derive step from current profile fields
+        // ── Progress flow ───────────────────────────────────────────────────────
         const currentStep = deriveStep(typedProfile);
 
-        // ── Process user answer against current step (MUST-3) ────────────────
-        let validationResult: { valid: boolean; value: string; hint?: string };
-        let profileUpdate: Record<string, unknown> = {};
-        let nextReply: string;
-        let nextStep: number;
-        let isComplete = false;
+        if (currentStep === 0) {
+            const result = validateDatingStartDate(message, typedProfile.birth_date);
 
-        switch (currentStep) {
-            case 0: {
-                validationResult = validateDatingStartDate(message, typedProfile.birth_date);
-                if (!validationResult.valid) {
-                    await supabase.from("messages").insert([
-                        { user_id: userId, role: "user", content: message, conversation_type: "couple_setup" },
-                        { user_id: userId, role: "assistant", content: validationResult.hint!, conversation_type: "couple_setup" },
-                    ]);
-                    return json({ reply: validationResult.hint!, questionIndex: 0, isComplete: false });
+            if (!result.valid) {
+                const { error: insertError } = await insertMessages(supabase, userId, [
+                    { role: "user", content: message },
+                    { role: "assistant", content: result.hint! },
+                ]);
+
+                if (insertError) {
+                    logError("INSERT_REASK_DATING_FAILED", insertError, { userId, message });
+                    return errorResponse("Failed to save messages", 500, insertError);
                 }
-                profileUpdate = { dating_start_date: validationResult.value };
-                nextStep = 1;
-                nextReply = pick(PROMPTS.askHelpType);
-                break;
+
+                return json({
+                    reply: result.hint!,
+                    questionIndex: 0,
+                    isComplete: false,
+                });
             }
 
-            case 1: {
-                validationResult = validateHelpFocus(message);
-                if (!validationResult.valid) {
-                    await supabase.from("messages").insert([
-                        { user_id: userId, role: "user", content: message, conversation_type: "couple_setup" },
-                        { user_id: userId, role: "assistant", content: validationResult.hint!, conversation_type: "couple_setup" },
-                    ]);
-                    return json({ reply: validationResult.hint!, questionIndex: 1, isComplete: false });
-                }
-                profileUpdate = { help_focus: validationResult.value };
-                nextStep = 2;
-                isComplete = true;
-                nextReply = pick(PROMPTS.complete);
-                break;
+            const nextReply = pick(PROMPTS.askHelpType);
+
+            const { error: msgError } = await insertMessages(supabase, userId, [
+                { role: "user", content: message },
+                { role: "assistant", content: nextReply },
+            ]);
+
+            if (msgError) {
+                logError("INSERT_STEP0_MESSAGES_FAILED", msgError, { userId, message });
+                return errorResponse("Failed to save messages", 500, msgError);
             }
 
-            default:
-                return json({ error: "Invalid couple setup state" }, 400);
+            const { error: updateError } = await supabase
+                .from("profiles")
+                .update({ dating_start_date: result.value })
+                .eq("id", userId);
+
+            if (updateError) {
+                logError("UPDATE_DATING_START_FAILED", updateError, {
+                    userId,
+                    dating_start_date: result.value,
+                });
+                return errorResponse("Failed to update profile", 500, updateError);
+            }
+
+            return json({
+                reply: nextReply,
+                questionIndex: 1,
+                isComplete: false,
+            });
         }
 
-        // ── Persist user message + assistant reply (MUST-5) ──────────────────
-        const { error: msgError } = await supabase.from("messages").insert([
-            { user_id: userId, role: "user", content: message, conversation_type: "couple_setup" },
-            { user_id: userId, role: "assistant", content: nextReply, conversation_type: "couple_setup" },
-        ]);
+        if (currentStep === 1) {
+            const result = validateHelpFocus(message);
 
-        if (msgError) {
-            return json({ error: "Failed to save messages" }, 500);
+            if (!result.valid) {
+                const { error: insertError } = await insertMessages(supabase, userId, [
+                    { role: "user", content: message },
+                    { role: "assistant", content: result.hint! },
+                ]);
+
+                if (insertError) {
+                    logError("INSERT_REASK_HELP_FAILED", insertError, { userId, message });
+                    return errorResponse("Failed to save messages", 500, insertError);
+                }
+
+                return json({
+                    reply: result.hint!,
+                    questionIndex: 1,
+                    isComplete: false,
+                });
+            }
+
+            const nextReply = pick(PROMPTS.complete);
+
+            const { error: msgError } = await insertMessages(supabase, userId, [
+                { role: "user", content: message },
+                { role: "assistant", content: nextReply },
+            ]);
+
+            if (msgError) {
+                logError("INSERT_STEP1_MESSAGES_FAILED", msgError, { userId, message });
+                return errorResponse("Failed to save messages", 500, msgError);
+            }
+
+            const { error: updateError } = await supabase
+                .from("profiles")
+                .update({ help_focus: result.value })
+                .eq("id", userId);
+
+            if (updateError) {
+                logError("UPDATE_HELP_FOCUS_FAILED", updateError, {
+                    userId,
+                    help_focus: result.value,
+                });
+                return errorResponse("Failed to update profile", 500, updateError);
+            }
+
+            return json({
+                reply: nextReply,
+                questionIndex: 2,
+                isComplete: true,
+            });
         }
 
-        // ── Update profile field(s) ──────────────────────────────────────────
-        const { error: updateError } = await supabase
-            .from("profiles")
-            .update(profileUpdate)
-            .eq("id", userId);
+        return errorResponse("Invalid couple setup state", 400);
+    } catch (err) {
+        logError(
+            "UNHANDLED_COUPLE_SETUP_ERROR",
+            err instanceof Error
+                ? {
+                    name: err.name,
+                    message: err.message,
+                    stack: err.stack,
+                }
+                : err,
+        );
 
-        if (updateError) {
-            return json({ error: "Failed to update profile" }, 500);
-        }
-
-        return json({ reply: nextReply, questionIndex: nextStep, isComplete });
-    } catch {
-        return json({ error: "Internal server error" }, 500);
+        return errorResponse(
+            "Internal server error",
+            500,
+            err instanceof Error
+                ? {
+                    name: err.name,
+                    message: err.message,
+                    stack: err.stack,
+                }
+                : String(err),
+        );
     }
 });

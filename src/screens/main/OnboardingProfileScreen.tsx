@@ -24,6 +24,7 @@ import Animated, {
     Easing,
 } from 'react-native-reanimated';
 import GradientButton from '@components/ui/GradientButton';
+import { HeartActionButton } from '@components/ui/HeartActionButton';
 import { ChatBubble } from '@components/chat/ChatBubble';
 import { TypingIndicator } from '@components/chat/TypingIndicator';
 import { useOnboarding } from '@hooks/useOnboarding';
@@ -345,23 +346,11 @@ export function OnboardingProfileScreen(_props: OnboardingProfileScreenProps): R
                                 editable={!isLoading && !showTyping}
                             />
                             <Animated.View style={sendAnimatedStyle}>
-                                <TouchableOpacity
+                                <HeartActionButton
                                     onPress={handleSend}
                                     disabled={sendDisabled}
-                                    activeOpacity={0.75}
-                                    style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
                                     accessibilityLabel="Send message"
-                                    accessibilityRole="button"
-                                >
-                                    <LinearGradient
-                                        colors={sendDisabled ? gradients.disabled : gradients.brand}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                        style={styles.sendGradient}
-                                    >
-                                        <Ionicons name="heart" size={22} color={colors.white} />
-                                    </LinearGradient>
-                                </TouchableOpacity>
+                                />
                             </Animated.View>
                         </View>
                     )}
@@ -391,23 +380,6 @@ const styles = StyleSheet.create({
         maxHeight: 120,
         borderWidth: 1.5,
         ...shadows.sm,
-    },
-    sendButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        overflow: 'hidden' as const,
-        ...shadows.glowPrimary,
-    },
-    sendButtonDisabled: {
-        opacity: 0.5,
-        shadowOpacity: 0,
-        elevation: 0,
-    },
-    sendGradient: {
-        flex: 1,
-        alignItems: 'center' as const,
-        justifyContent: 'center' as const,
     },
     devMenuBackdrop: {
         flex: 1,

@@ -25,6 +25,31 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+const SHORT_CODE_LENGTH = 6;
+const SHORT_CODE_RE = /^[A-Z0-9]{6}$/;
+
+function deriveShortCode(token: string): string {
+  let hash = 0;
+
+  for (let i = 0; i < token.length; i += 1) {
+    hash = ((hash * 31) + token.charCodeAt(i)) >>> 0;
+  }
+
+  return hash
+    .toString(36)
+    .toUpperCase()
+    .padStart(SHORT_CODE_LENGTH, "0")
+    .slice(-SHORT_CODE_LENGTH);
+}
+
+interface PairingTokenRow {
+  id: string;
+  token: string;
+  creator_id: string;
+  expires_at: string;
+  used: boolean;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
@@ -57,24 +82,70 @@ Deno.serve(async (req) => {
 
   const tokenValue = (body as Record<string, unknown>)?.token;
   if (
-    typeof tokenValue !== "string" ||
-    tokenValue.length === 0 ||
-    tokenValue.length > 100
+    typeof tokenValue !== "string"
   ) {
+    return json({ error: "Invalid token" }, 400);
+  }
+
+  const normalizedTokenInput = tokenValue.trim();
+  if (normalizedTokenInput.length === 0 || normalizedTokenInput.length > 100) {
     return json({ error: "Invalid token" }, 400);
   }
 
   // MUST-NOT-3: service_role client only after auth verification
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // MUST-4: Look up token — must exist, not used, not expired
-  const { data: pairingToken, error: tokenError } = await supabase
-    .from("pairing_tokens")
-    .select("id, creator_id, expires_at, used")
-    .eq("token", tokenValue)
-    .single();
+  const nowIso = new Date().toISOString();
 
-  if (tokenError || !pairingToken) {
+  // Remove expired unused tokens opportunistically to prevent stale row buildup.
+  await supabase
+    .from("pairing_tokens")
+    .delete()
+    .eq("used", false)
+    .lt("expires_at", nowIso);
+
+  const normalizedShortCodeInput = normalizedTokenInput.toUpperCase();
+  const isShortCodeInput = SHORT_CODE_RE.test(normalizedShortCodeInput);
+
+  let pairingToken: PairingTokenRow | null = null;
+
+  if (isShortCodeInput) {
+    const { data: activeTokens, error: activeTokensError } = await supabase
+      .from("pairing_tokens")
+      .select("id, token, creator_id, expires_at, used")
+      .eq("used", false)
+      .gt("expires_at", nowIso);
+
+    if (activeTokensError) {
+      return json({ error: "Failed to validate code" }, 500);
+    }
+
+    const matchingTokens = (activeTokens ?? []).filter((row) => {
+      const rowToken = (row as PairingTokenRow).token;
+      return typeof rowToken === "string" && deriveShortCode(rowToken) === normalizedShortCodeInput;
+    }) as PairingTokenRow[];
+
+    if (matchingTokens.length !== 1) {
+      return json({ error: "Invalid or expired code" }, 410);
+    }
+
+    pairingToken = matchingTokens[0];
+  } else {
+    // MUST-4: Look up token — must exist, not used, not expired
+    const { data: tokenRow, error: tokenError } = await supabase
+      .from("pairing_tokens")
+      .select("id, token, creator_id, expires_at, used")
+      .eq("token", normalizedTokenInput)
+      .single();
+
+    if (tokenError || !tokenRow) {
+      return json({ error: "Invalid or expired code" }, 410);
+    }
+
+    pairingToken = tokenRow as PairingTokenRow;
+  }
+
+  if (!pairingToken) {
     return json({ error: "Invalid or expired code" }, 410);
   }
 
@@ -83,6 +154,10 @@ Deno.serve(async (req) => {
   }
 
   if (new Date(pairingToken.expires_at as string) < new Date()) {
+    await supabase
+      .from("pairing_tokens")
+      .delete()
+      .eq("id", pairingToken.id as string);
     return json({ error: "Code expired" }, 410);
   }
 
@@ -151,7 +226,7 @@ Deno.serve(async (req) => {
   await supabase
     .from("pairing_tokens")
     .update({ used: true, used_by: scannerId, couple_id: coupleId })
-    .eq("token", tokenValue);
+    .eq("id", pairingToken.id);
 
   return json({
     couple: { id: coupleId, createdAt: coupleCreatedAt },

@@ -1,7 +1,6 @@
 create extension if not exists "moddatetime" with schema "extensions";
 
-create type "public"."conversation_type" as enum ('chat', 'onboarding');
-
+create type "public"."conversation_type" as enum ('chat', 'onboarding', 'couple_setup');
 create type "public"."message_role" as enum ('user', 'assistant');
 
 
