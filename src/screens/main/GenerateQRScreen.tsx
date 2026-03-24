@@ -1,52 +1,62 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import QRCode from 'react-native-qrcode-svg';
-import type { GenerateQRScreenProps } from '@navigation/types';
-import { usePairing } from '@hooks/usePairing';
-import { useAuthStore } from '@store/authStore';
-import GradientButton from '@components/ui/GradientButton';
-import { colors, spacing, textStyles, radii, shadows } from '@/theme/tokens';
+import React, { useEffect, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import QRCode from "react-native-qrcode-svg";
+import type { GenerateQRScreenProps } from "@navigation/types";
+import { usePairing } from "@hooks/usePairing";
+import { useAuthStore } from "@store/authStore";
+import GradientButton from "@components/ui/GradientButton";
+import { colors, spacing, textStyles, radii, shadows } from "@/theme/tokens";
 
 const PAIRING_POLL_INTERVAL_MS = 2000;
-
-function debugPairingScreenLog(message: string, meta?: Record<string, unknown>): void {
-  if (__DEV__) {
-    console.warn(`[GenerateQR] ${message}`, meta ?? {});
-  }
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getSecondsRemaining(expiresAt: string | null): number {
   if (!expiresAt) return 0;
-  return Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+  return Math.max(
+    0,
+    Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000),
+  );
 }
 
 function formatCountdown(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 function deriveShortPairCode(token: string | null): string {
   if (!token) {
-    return '000000';
+    return "000000";
   }
 
   let hash = 0;
   for (let i = 0; i < token.length; i += 1) {
-    hash = ((hash * 31) + token.charCodeAt(i)) >>> 0;
+    hash = (hash * 31 + token.charCodeAt(i)) >>> 0;
   }
 
-  return hash.toString(36).toUpperCase().padStart(6, '0').slice(-6);
+  return hash.toString(36).toUpperCase().padStart(6, "0").slice(-6);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
   ({ navigation }) => {
-    const { token, expiresAt, isPending, error, generateToken, getCoupleStatus } = usePairing();
+    const {
+      token,
+      expiresAt,
+      isPending,
+      error,
+      generateToken,
+      getCoupleStatus,
+    } = usePairing();
     const setPairingSkipped = useAuthStore((s) => s.setPairingSkipped);
     const [secondsLeft, setSecondsLeft] = useState<number>(0);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -77,11 +87,8 @@ export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
 
     useEffect(() => {
       if (!token || isExpired) {
-        debugPairingScreenLog('polling:skipped', { hasToken: token !== null, isExpired });
         return;
       }
-
-      debugPairingScreenLog('polling:start', { isExpired });
 
       let isActive = true;
       let isChecking = false;
@@ -94,23 +101,18 @@ export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
         isChecking = true;
         const status = await getCoupleStatus();
         isChecking = false;
-        debugPairingScreenLog('polling:result', {
-          hasStatus: status !== null,
-          isPaired: status?.isPaired ?? false,
-          coupleId: status?.coupleId ?? null,
-          hasPartner: status?.partner != null,
-        });
 
-        if (!isActive || hasNavigatedRef.current || !status?.isPaired || !status.coupleId) {
+        if (
+          !isActive ||
+          hasNavigatedRef.current ||
+          !status?.isPaired ||
+          !status.coupleId
+        ) {
           return;
         }
 
         hasNavigatedRef.current = true;
-        debugPairingScreenLog('polling:navigate', {
-          coupleId: status.coupleId,
-          partnerName: status.partner?.name ?? null,
-        });
-        navigation.navigate('ConnectionConfirmed', {
+        navigation.navigate("ConnectionConfirmed", {
           partnerName: status.partner?.name ?? null,
           coupleId: status.coupleId,
         });
@@ -124,7 +126,6 @@ export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
 
       return () => {
         isActive = false;
-        debugPairingScreenLog('polling:cleanup');
         clearInterval(interval);
       };
     }, [getCoupleStatus, isExpired, navigation, token]);
@@ -134,7 +135,7 @@ export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
     };
 
     const handleScanInstead = () => {
-      navigation.navigate('ScanQR');
+      navigation.navigate("ScanQR");
     };
 
     const handleSkip = () => {
@@ -204,13 +205,15 @@ export const GenerateQRScreen: React.FC<GenerateQRScreenProps> = React.memo(
 
           {/* Footer toggle */}
           <View style={styles.footer}>
-            <Text style={styles.toggleLabel}>
-              Want to scan instead?
-            </Text>
+            <Text style={styles.toggleLabel}>Want to scan instead?</Text>
             <TouchableOpacity onPress={handleScanInstead} activeOpacity={0.75}>
               <Text style={styles.toggleLink}>Scan partner&apos;s QR</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleSkip} activeOpacity={0.75} style={styles.skipButton}>
+            <TouchableOpacity
+              onPress={handleSkip}
+              activeOpacity={0.75}
+              style={styles.skipButton}
+            >
               <Text style={styles.skipText}>Skip for now</Text>
             </TouchableOpacity>
           </View>
@@ -230,46 +233,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
     paddingBottom: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.sm,
   },
   title: {
     ...textStyles.displaySm,
     color: colors.foreground,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     ...textStyles.bodyMd,
     color: colors.gray,
-    textAlign: 'center',
+    textAlign: "center",
   },
   qrArea: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 280,
   },
   loadingBox: {
     width: 260,
     height: 260,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   errorBox: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
   },
   errorText: {
     ...textStyles.bodyMd,
     color: colors.error,
-    textAlign: 'center',
+    textAlign: "center",
   },
   qrWrapper: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.md,
     padding: spacing.xl,
     backgroundColor: colors.background,
@@ -290,7 +293,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2.5,
   },
   expiredBox: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
   },
@@ -300,15 +303,15 @@ const styles = StyleSheet.create({
   expiredTitle: {
     ...textStyles.h2,
     color: colors.foreground,
-    textAlign: 'center',
+    textAlign: "center",
   },
   expiredSubtitle: {
     ...textStyles.bodyMd,
     color: colors.gray,
-    textAlign: 'center',
+    textAlign: "center",
   },
   footer: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.xs,
   },
   toggleLabel: {
@@ -318,7 +321,7 @@ const styles = StyleSheet.create({
   toggleLink: {
     ...textStyles.bodySm,
     color: colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   skipButton: {
     marginTop: spacing.md,
@@ -326,6 +329,6 @@ const styles = StyleSheet.create({
   skipText: {
     ...textStyles.bodySm,
     color: colors.gray,
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
   },
 });

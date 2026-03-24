@@ -9,7 +9,7 @@
 // Error messages are generic — no internal details surfaced to the UI.
 // =============================================================================
 
-import { supabase } from '@data/supabase';
+import { supabase } from "@data/supabase";
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
@@ -48,7 +48,7 @@ export interface CoupleStatus {
 
 type PairingResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
-function debugPairingLog(message: string, meta?: Record<string, unknown>): void {
+function warnPairing(message: string, meta?: Record<string, unknown>): void {
   if (__DEV__) {
     console.warn(`[pairingApi] ${message}`, meta ?? {});
   }
@@ -57,16 +57,21 @@ function debugPairingLog(message: string, meta?: Record<string, unknown>): void 
 // ─── HTTP status → user-facing message ────────────────────────────────────────
 
 function mapHttpError(status: number, serverMsg?: string): string {
-  if (status === 401) return 'Session expired. Please sign in again.';
-  if (status === 409) return 'You or your partner are already connected to someone.';
-  if (status === 410) return 'This code has expired. Ask your partner to generate a new one.';
+  if (status === 401) return "Session expired. Please sign in again.";
+  if (status === 409)
+    return "You or your partner are already connected to someone.";
+  if (status === 410)
+    return "This code has expired. Ask your partner to generate a new one.";
   if (status === 400) {
-    if (typeof serverMsg === 'string' && serverMsg.toLowerCase().includes('yourself')) {
+    if (
+      typeof serverMsg === "string" &&
+      serverMsg.toLowerCase().includes("yourself")
+    ) {
       return "You can't pair with yourself!";
     }
-    return 'Invalid request.';
+    return "Invalid request.";
   }
-  return 'Request failed. Please try again.';
+  return "Request failed. Please try again.";
 }
 
 // ─── Shared fetch helper ───────────────────────────────────────────────────────
@@ -76,10 +81,11 @@ async function callPairingFunction<T>(
   body?: Record<string, unknown>,
 ): Promise<PairingResult<T>> {
   try {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.getSession();
 
     if (sessionError || !sessionData.session?.access_token) {
-      return { ok: false, error: 'Session expired. Please sign in again.' };
+      return { ok: false, error: "Session expired. Please sign in again." };
     }
 
     const accessToken = sessionData.session.access_token;
@@ -87,9 +93,9 @@ async function callPairingFunction<T>(
     const response = await fetch(
       `${SUPABASE_URL}/functions/v1/${functionName}`,
       {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
           apikey: SUPABASE_ANON_KEY,
         },
@@ -97,7 +103,7 @@ async function callPairingFunction<T>(
       },
     );
 
-    const data = await response.json() as T & { error?: string };
+    const data = (await response.json()) as T & { error?: string };
 
     if (!response.ok) {
       return {
@@ -108,15 +114,17 @@ async function callPairingFunction<T>(
 
     return { ok: true, data };
   } catch {
-    return { ok: false, error: 'Network error. Please check your connection.' };
+    return { ok: false, error: "Network error. Please check your connection." };
   }
 }
 
 // ─── API calls ────────────────────────────────────────────────────────────────
 
 /** Generate a new pairing token via the pairing-generate edge function. */
-export async function generateToken(): Promise<PairingResult<PairingGenerateResponse>> {
-  return callPairingFunction<PairingGenerateResponse>('pairing-generate');
+export async function generateToken(): Promise<
+  PairingResult<PairingGenerateResponse>
+> {
+  return callPairingFunction<PairingGenerateResponse>("pairing-generate");
 }
 
 /**
@@ -126,53 +134,59 @@ export async function generateToken(): Promise<PairingResult<PairingGenerateResp
 export async function connectWithToken(
   token: string,
 ): Promise<PairingResult<PairingConnectResponse>> {
-  return callPairingFunction<PairingConnectResponse>('pairing-connect', { token });
+  return callPairingFunction<PairingConnectResponse>("pairing-connect", {
+    token,
+  });
 }
 
 /** Disconnect from the current partner. Idempotent. */
-export async function disconnect(): Promise<PairingResult<PairingDisconnectResponse>> {
-  return callPairingFunction<PairingDisconnectResponse>('pairing-disconnect');
+export async function disconnect(): Promise<
+  PairingResult<PairingDisconnectResponse>
+> {
+  return callPairingFunction<PairingDisconnectResponse>("pairing-disconnect");
 }
 
 /**
  * Fetch couple status via direct DB query (read-only — no edge function needed).
  * Returns partner info from the profiles table via RLS-enforced join.
  */
-export async function fetchCoupleStatus(userId: string): Promise<PairingResult<CoupleStatus>> {
+export async function fetchCoupleStatus(
+  userId: string,
+): Promise<PairingResult<CoupleStatus>> {
   try {
-    debugPairingLog('fetchCoupleStatus:start', { userId });
-
-    const { data: coupleIdData, error: profileError } = await supabase
-      .rpc('get_my_couple_id');
+    const { data: coupleIdData, error: profileError } =
+      await supabase.rpc("get_my_couple_id");
 
     if (profileError) {
-      debugPairingLog('fetchCoupleStatus:profile_error', { userId, message: profileError.message });
-      return { ok: false, error: 'Failed to read profile.' };
+      warnPairing("fetchCoupleStatus:profile_error", {
+        userId,
+        message: profileError.message,
+      });
+      return { ok: false, error: "Failed to read profile." };
     }
 
-    const coupleId = typeof coupleIdData === 'string' ? coupleIdData : null;
-    debugPairingLog('fetchCoupleStatus:profile_ok', { userId, hasCoupleId: coupleId !== null, coupleId });
+    const coupleId = typeof coupleIdData === "string" ? coupleIdData : null;
 
     if (!coupleId) {
-      debugPairingLog('fetchCoupleStatus:unpaired', { userId });
-      return { ok: true, data: { isPaired: false, coupleId: null, partner: null } };
+      return {
+        ok: true,
+        data: { isPaired: false, coupleId: null, partner: null },
+      };
     }
 
     // Fetch couple + partner profile
     const { data: couple, error: coupleError } = await supabase
-      .from('couples')
-      .select('id, partner1_id, partner2_id, is_active')
-      .eq('id', coupleId)
-      .eq('is_active', true)
+      .from("couples")
+      .select("id, partner1_id, partner2_id, is_active")
+      .eq("id", coupleId)
+      .eq("is_active", true)
       .single();
 
     if (coupleError || !couple) {
-      debugPairingLog('fetchCoupleStatus:couple_missing', {
-        userId,
-        coupleId,
-        message: coupleError?.message ?? null,
-      });
-      return { ok: true, data: { isPaired: false, coupleId: null, partner: null } };
+      return {
+        ok: true,
+        data: { isPaired: false, coupleId: null, partner: null },
+      };
     }
 
     const c = couple as {
@@ -183,23 +197,26 @@ export async function fetchCoupleStatus(userId: string): Promise<PairingResult<C
     };
 
     const partnerId = c.partner1_id === userId ? c.partner2_id : c.partner1_id;
-    debugPairingLog('fetchCoupleStatus:couple_ok', { userId, coupleId, partnerId });
 
     const { data: partnerProfile, error: partnerError } = await supabase
-      .from('profiles')
-      .select('id, name, avatar_url')
-      .eq('id', partnerId)
+      .from("profiles")
+      .select("id, name, avatar_url")
+      .eq("id", partnerId)
       .maybeSingle();
 
     if (partnerError) {
-      debugPairingLog('fetchCoupleStatus:partner_error', {
+      warnPairing("fetchCoupleStatus:partner_error", {
         userId,
         partnerId,
         message: partnerError.message,
       });
     }
 
-    const pp = partnerProfile as { id: string; name: string | null; avatar_url: string | null } | null;
+    const pp = partnerProfile as {
+      id: string;
+      name: string | null;
+      avatar_url: string | null;
+    } | null;
 
     return {
       ok: true,
@@ -214,7 +231,7 @@ export async function fetchCoupleStatus(userId: string): Promise<PairingResult<C
       },
     };
   } catch {
-    debugPairingLog('fetchCoupleStatus:network_error', { userId });
-    return { ok: false, error: 'Network error. Please check your connection.' };
+    warnPairing("fetchCoupleStatus:unexpected_error", { userId });
+    return { ok: false, error: "Network error. Please check your connection." };
   }
 }
