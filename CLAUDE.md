@@ -4,7 +4,7 @@ You are pair-coding on **CoupleGoAI**: a premium Gen Z couples mobile app.
 
 ---
 
-## Stack (locked — do not upgrade without justification)
+## Stack
 
 | Layer      | Tech                                                                 |
 | ---------- | -------------------------------------------------------------------- |
@@ -37,31 +37,44 @@ Always use aliases in imports. Never use deep relative paths (`../../..`).
 
 ---
 
-## 0 · Source of truth — read before touching code
+## Skills — detailed rules live here
 
-1. `docs/features/<feature>/spec.md` — requirements
-2. `docs/features/<feature>/plan.md` — architecture
-3. `docs/features/<feature>/threat-model.md` — security rules
-4. Existing code patterns in `src/`
+Before writing any code, load the relevant skill file:
 
-If docs exist for a feature, **do not contradict them**. Update docs only when asked or when implementation reality requires it.
-
-**Do not create or update any documentation files unless explicitly asked.** This includes `docs/`, `README.md`, and any `.md` files. Write code only.
-
-### Agentic workflow
-
-For **new features**:
-1. Use the **Planner** subagent (`planner`) with feature name + description → produces `plan.md` + `threat-model.md`
-2. Use the **Implementer** subagent (`implementer`) → builds the feature per those docs
-
-For **feature modifications**:
-1. Use the **Modifier** subagent (`modifier`) with the feature name + description of change → updates docs and applies code changes
-
-Subagents live in `.claude/agents/`. Invoke them via the Agent tool or let Claude auto-route based on context.
+- `.claude/skills/supabase.md` — all Supabase, edge functions, JWT, MCP schema inspection
+- `.claude/skills/react-native.md` — Expo/RN conventions, Zustand, Reanimated, styling
+- `.claude/skills/agent-workflow.md` — subagents, Ruflo pipeline, output format
 
 ---
 
-## 1 · Architecture — strict layered boundaries
+**Do not create or update any documentation files unless explicitly asked.** This includes `docs/`, `README.md`, and any `.md` files. Write code only.
+
+---
+
+## Agentic workflow
+
+Choose the right command for the job:
+
+| Command             | When to use                                                                  |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `/implement-swarm`  | New feature — full hierarchical 3-agent swarm (architect → coder → reviewer) |
+| `/modify-swarm`     | Existing feature change — same swarm, minimal-diff scope                     |
+| `/implement-claude` | New feature, small/medium — Claude directly, no swarm overhead               |
+| `/modify-claude`    | Small targeted change — Claude directly, fastest option                      |
+
+### Fallback: native subagents (when commands are unavailable)
+
+| Agent         | Role                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------- |
+| `planner`     | Produces `plan.md` + `threat-model.md`. Does not write production code.               |
+| `implementer` | Builds the feature strictly per `plan.md`, satisfies every MUST in `threat-model.md`. |
+| `modifier`    | Makes targeted changes. Never touches unrelated code.                                 |
+
+Subagents live in `.claude/agents/`. Invoke them via the Agent tool.
+
+---
+
+## Architecture — strict layered boundaries
 
 ```
 src/
@@ -84,60 +97,34 @@ UI (screens/components) → hooks → domain → data (interfaces)
                                           ↘ types/theme/utils (shared)
 ```
 
-Rules:
-
 - UI must **never** call fetch / storage / realtime directly.
-- Domain contains business logic, depends on interfaces — not implementations.
-- Data layer implements interfaces (API clients, persistence, sync).
+- Domain depends on interfaces — not implementations.
 - Hooks orchestrate: compose domain + data, expose to UI.
 - No circular imports. No barrel re-exports beyond `types/index.ts`.
 
-### Zustand patterns
-
-```ts
-// Thin slices — actions co-located, selectors external
-export const useXStore = create<XStore>((set, get) => ({ ... }));
-
-// ALWAYS use selectors — never destructure the whole store
-const value = useXStore((s) => s.value);
-
-// Derived state — compute in selectors or hooks, not in store
-```
-
-### Component patterns
-
-```ts
-// Functional only. No class components. No default exports.
-export const MyComponent: React.FC<Props> = React.memo(({ ... }) => { ... });
-
-// Use NativeWind className for all static styling
-// StyleSheet.create only for dynamic computed values, platform exceptions, or rare unsupported cases
-const styles = StyleSheet.create({ ... });
-```
-
 ---
 
-## 2 · Security & privacy (non-negotiable)
+## Security & privacy (non-negotiable)
 
 - **Never** log secrets, tokens, auth headers, PII, or full request/response bodies.
 - **Validate** at trust boundaries: deep links, QR payloads, push data, API responses, user input.
 - Tokens/secrets → `expo-secure-store` (never AsyncStorage, never MMKV for secrets).
 - **Least privilege**: request only permissions needed, gate by explicit user intent.
-- Handle session expiry explicitly; **wipe** all sensitive state on logout (`store.reset()` + secure storage clear).
-- Real-time sync is **untrusted input**: validate shapes with runtime checks, verify turn ownership, room membership.
-- Error messages shown to users must **never** contain stack traces, internal IDs, or token fragments.
+- Wipe all sensitive state on logout (`store.reset()` + secure storage clear).
+- Real-time sync is **untrusted input** — validate shapes, verify ownership.
+- Error messages must **never** contain stack traces, internal IDs, or token fragments.
 
 If a security requirement conflicts with a feature constraint, **stop and propose** a safe alternative.
 
 ---
 
-## 3 · Reliability & quality
+## Reliability & quality
 
 - Network calls: typed errors (`Result<T, E>` or discriminated unions), timeouts, retries only for idempotent GETs.
 - Every user-facing flow: loading → content → error → empty states.
 - Zero unhandled promises — always `catch` or `try/catch`.
-- Tests for domain logic (pure functions, use-cases). Add seams/hooks for integration/e2e.
-- Prefer `ErrorBoundary` at screen level for graceful crash recovery.
+- Tests for domain logic (pure functions, use-cases).
+- `ErrorBoundary` at screen level for graceful crash recovery.
 
 ### Code minimalism
 
@@ -149,35 +136,17 @@ If a security requirement conflicts with a feature constraint, **stop and propos
 
 ---
 
-## 4 · Performance (React Native specific)
-
-- **JS thread**: never block with heavy sync computation. Offload to worklets or async.
-- **Re-renders**: use `React.memo` on list items and expensive subtrees. Use stable callbacks (`useCallback` with correct deps).
-- **Lists**: `FlatList` with `keyExtractor`, `getItemLayout` when heights are fixed, `windowSize` tuning.
-- **Animations**: Reanimated `useAnimatedStyle` + `useSharedValue` — run on UI thread. Never animate with `setState`.
-- **Images**: use cached image libraries, specify dimensions, avoid layout thrashing.
-- **Bundle**: no dynamic `require()`. Tree-shake via named exports. Lazy-load heavy screens with navigation lazy.
-- **Startup**: minimize root-level providers. Defer non-critical init with `InteractionManager.runAfterInteractions`.
-
----
-
-## 5 · Brand & UI system
+## Brand & UI system
 
 Tone: warm, romantic, premium, modern, slightly playful — never childish. Minimal cognitive load.
 
-Visual system (references `src/theme/`):
+- `src/theme/tokens.ts` is the **only** theme file — all colors, radii, spacing, shadows, typography, gradients.
+- All components import styling values exclusively from `@/theme/tokens`.
+- Do NOT invent new colors. If a new token is needed, add it to `tokens.ts` and `tailwind.config.js` first.
+- Pill-shaped CTAs via `GradientButton`. Card-based layout via `Card`.
+- Motion: subtle `withTiming`/`withSpring`. Never jarring. Never blocks interaction.
 
-- `src/theme/tokens.ts` is the **ONLY theme file** — all colors, radii, spacing, shadows, font families, typography primitives, composed text styles, layout constants, and gradients live here. No other theme file exists.
-- All components must import styling values exclusively from `@/theme/tokens`.
-- Semantic color roles: `background`, `foreground`, `foregroundMuted`, `gray`, `primary`, `primaryLight`, `accent`, `accentLight`, `muted`, `accentSoft`, `borderDefault`.
-- Radii: `radius` (20), `radiusMd` (16), `radiusSm` (12), `radiusFull` (999) — always via tokens, never inline values.
-- Typography: composed `textStyles` and `fontSize`/`fontWeight`/`fontFamilies` primitives in `tokens.ts`. No ad-hoc font sizes in components.
-- Gradients: pink→lavender (`gradients.brand`), used sparingly on CTAs via `GradientButton`.
-- Pill-shaped CTAs via `GradientButton`. Card-based layout via `Card` component.
-- Generous spacing (`spacing.lg`+), thumb-friendly targets (min 44pt), soft shadows only.
-- Motion: subtle `withTiming`/`withSpring` (scale, fade, slide). Never jarring. Never blocks interaction.
-
-### Token palette (canonical)
+### Token palette
 
 | Token             | Value                                  |
 | ----------------- | -------------------------------------- |
@@ -193,87 +162,13 @@ Visual system (references `src/theme/`):
 | `accentSoft`      | `#f5eafa`                              |
 | `borderDefault`   | soft neutral derived from `foreground` |
 
-Radii: `radius=20`, `radiusMd=16`, `radiusSm=12`, `radiusFull=999`. Spacing: `xs/sm/md/lg/xl/2xl`. Layout: `screenPaddingH/screenPaddingV/cardPadding`. Shadows: `none/sm/md/lg` + optional `glowPrimary/glowAccent`.
-
-Tailwind semantic names: `bg-background`, `text-foreground`, `text-foregroundMuted`, `bg-primary`, `bg-accent`, `bg-muted`, `rounded-md` (radiusSm=12), `rounded-xl` (radius=20), `rounded-full`.
-
-Do NOT invent new colors. If a genuinely new token is needed, add it to `tokens.ts` and `tailwind.config.js` first.
+Radii: `radius=20`, `radiusMd=16`, `radiusSm=12`, `radiusFull=999`.
+Spacing: `xs/sm/md/lg/xl/2xl`. Layout: `screenPaddingH/screenPaddingV/cardPadding`.
+Tailwind: `bg-background`, `text-foreground`, `text-foregroundMuted`, `bg-primary`, `bg-accent`, `bg-muted`, `rounded-md`, `rounded-xl`, `rounded-full`.
 
 ---
 
-## 6 · Constraints
-
-- Functional components + hooks only.
-- Prefer existing libraries/patterns. Do not add dependencies without: **why**, alternatives considered, bundle impact.
-- No large refactors unless explicitly requested.
-- All new files must use path aliases.
-- File naming: `PascalCase.tsx` for components/screens, `camelCase.ts` for logic/utils/hooks.
-- Hardcoded hex values in components are forbidden.
-- Arbitrary spacing numbers and inline border-radius values are forbidden.
-- `StyleSheet.create` is allowed only for: dynamic computed values, platform-specific exceptions, rare NativeWind-unsupported cases.
-
----
-
-## 7 · Supabase & backend (non-negotiable)
-
-### JWT & edge functions
-
-- This project uses **ES256 (ECC P-256)** JWT signing. The Supabase gateway only supports HS256 and will reject all valid user tokens with 401 if `verify_jwt = true`.
-- **Every edge function must have `verify_jwt = false`** in `supabase/config.toml`.
-- Auth inside edge functions must use the **Auth REST API directly** — never `client.auth.getUser()` which uses HS256 verification internally:
-
-```typescript
-const authResponse = await fetch(
-  `${Deno.env.get("SUPABASE_URL")}/auth/v1/user`,
-  {
-    headers: {
-      Authorization: authHeader,
-      apikey: Deno.env.get("SUPABASE_ANON_KEY")!,
-    },
-  },
-);
-if (!authResponse.ok) return json({ error: "Auth failed" }, 401);
-const user = await authResponse.json();
-```
-
-### React Native → edge function calls
-
-- **Never use `supabase.functions.invoke()`** — it strips the `Authorization` header in `supabase-js-react-native` (known bug).
-- Always use **plain `fetch`** with explicit headers:
-
-```typescript
-const { data: { session } } = await supabase.auth.getSession();
-
-await fetch(
-  `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/<function-name>`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session!.access_token}`,
-      apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!, // legacy anon key (eyJhbGci...)
-    },
-    body: JSON.stringify(payload),
-  },
-);
-```
-
-### API keys
-
-- Two separate keys — use the correct one for each context:
-  - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` (`sb_publishable_...`) — for direct DB/Auth calls via the supabase client.
-  - `EXPO_PUBLIC_SUPABASE_ANON_KEY` (`eyJhbGci...`) — **required as `apikey` header** when calling edge functions. The gateway rejects the publishable key.
-- Never use the `service_role` key on the client. Edge functions access it via `Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')`.
-
-### RLS & DB clients in edge functions
-
-- Use a **user-scoped client** (anon key + forwarded JWT) for operations where RLS should apply.
-- Use a **service role client** for atomic multi-table writes or operations that must bypass RLS (pairing, disconnect). Identity must always be verified via the Auth REST API first before using the service role client.
-- Never expose the service role key to the client under any circumstance.
-
----
-
-## 8 · Output expectations (every meaningful change)
+## Output expectations (every meaningful change)
 
 1. **What** changed and **why** (one sentence)
 2. **Files** changed (grouped by layer)

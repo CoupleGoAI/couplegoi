@@ -17,6 +17,7 @@
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.9.26",
     "@supabase/supabase-js": "^2.98.0",
+    "agentic-flow": "^2.0.7",
     "babel-preset-expo": "^55.0.10",
     "expo": "~54.0.0",
     "expo-blur": "~15.0.8",

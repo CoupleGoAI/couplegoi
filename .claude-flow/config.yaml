@@ -1,43 +1,106 @@
 # RuFlo V3 Runtime Configuration
-# Generated: 2026-03-24T19:41:38.007Z
+# CoupleGoAI — updated 2026-03-26
 
 version: "3.0.0"
 
 swarm:
-  topology: hierarchical-mesh
-  maxAgents: 15
-  autoScale: true
-  coordinationStrategy: consensus
+  topology: hierarchical
+  maxAgents: 4
+  autoScale: false
+  coordinationStrategy: specialized   # specialized = clear roles, no role-drift between agents
+
+  enforce:
+    architecture_rules: true
+    supabase_mcp_first: true
+    strict_layering: true
+    no_direct_data_access: true
+    zero_trust_inputs: true
 
 memory:
-  backend: hybrid
-  enableHNSW: true
-  persistPath: .claude-flow/data
-  cacheSize: 100
-  # ADR-049: Self-Learning Memory
+  backend: sqlite
+  persistPath: .swarm/memory.db
+  cacheSize: 256
+
+  # HNSW vector index — faster pattern retrieval (agentic-flow v2+)
+  hnsw:
+    enabled: true
+    ef: 200           # search accuracy (higher = more accurate, ~200 is good default)
+    M: 16             # graph connectivity (higher = more accurate, more memory)
+    maxElements: 50000
+
   learningBridge:
     enabled: true
-    sonaMode: balanced
-    confidenceDecayRate: 0.005
-    accessBoostAmount: 0.03
-    consolidationThreshold: 10
+    mode: stable
+    confidenceDecayRate: 0.01
+    accessBoostAmount: 0.05
+    consolidationThreshold: 5   # was 8 — lower to consolidate learnings faster
+
   memoryGraph:
     enabled: true
-    pageRankDamping: 0.85
     maxNodes: 5000
-    similarityThreshold: 0.8
+    similarityThreshold: 0.78
+    pageRankDamping: 0.85
+
   agentScopes:
     enabled: true
     defaultScope: project
+    isolateSwarmRuns: true
+
+  # Transfer high-confidence patterns between agents within the same swarm run
+  knowledgeTransfer:
+    enabled: true
+    confidenceThreshold: 0.80
+    crossAgentTransfer: true
 
 neural:
-  enabled: true
-  modelPath: .claude-flow/neural
+  enabled: false   # not useful for deterministic RN + Supabase workflows
 
 hooks:
   enabled: true
   autoExecute: true
 
+  preExecution:
+    validateCLAUDE_MD: true
+    validateSupabaseRules: true
+    enforcePathAliases: true
+
+  postExecution:
+    storeMemory: true
+    runLightValidation: true
+
+  # Background workers — active when daemon is running (npx ruflo daemon start)
+  workers:
+    enabled: true
+    active:
+      - optimize      # high priority — keeps patterns sharp
+      - consolidate   # low priority — merges redundant memory entries
+      - audit         # critical — flags security regressions
+    disabled:
+      # Enable these if you want deeper background analysis:
+      - ultralearn    # deep knowledge mining (expensive)
+      - testgaps      # test coverage analysis
+      - benchmark     # performance benchmarking
+
 mcp:
-  autoStart: false
+  autoStart: true
   port: 3000
+
+  # Must match the server names from `claude mcp list`
+  priority:
+    - claude-flow   # ruflo orchestration — always first
+    - supabase      # schema introspection — second (validates before any code)
+    - figma         # design reference — for UI work
+
+  strictMode: true
+
+# Session persistence — restores context across Claude Code sessions
+session:
+  persist: true
+  restoreOnStart: true
+  maxAge: 86400   # 24h — sessions older than this are discarded
+
+# Daemon (optional background process)
+# Start with: npx ruflo daemon start
+daemon:
+  autoStart: false   # start manually when you want background workers
+  healthCheckInterval: 60
