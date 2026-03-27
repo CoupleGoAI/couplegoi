@@ -5,13 +5,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { ChatMode } from '@/types/index';
 import type { RootNavProp } from '@navigation/types';
 import { useAiChat } from '@hooks/useAiChat';
+import { useAuthStore } from '@store/authStore';
 import { ChatContainer } from '@components/ui/Chat';
 import { colors, gradients } from '@/theme/tokens';
 
 export function AiChatScreen(): React.ReactElement {
     const navigation = useNavigation<RootNavProp>();
-    const { messages, isHistoryLoading, isStreaming, error, send } = useAiChat();
+    const coupleId = useAuthStore((s) => s.user?.coupleId);
     const [mode, setMode] = useState<ChatMode>('single');
+    const { messages, isHistoryLoading, isStreaming, error, send } = useAiChat(mode);
 
     const handleSend = useCallback(
         (text: string) => {
@@ -37,6 +39,7 @@ export function AiChatScreen(): React.ReactElement {
             messages={messages}
             isLoading={isStreaming}
             mode={mode}
+            isCoupled={coupleId !== null && coupleId !== undefined}
             onModeChange={setMode}
             onSend={handleSend}
             onBack={handleBack}

@@ -57,6 +57,7 @@ export async function fetchChatHistory(): Promise<ChatHistoryResult> {
 export function sendStreamMessage(
     content: string,
     callbacks: StreamCallbacks,
+    mode?: 'couple',
 ): Promise<void> {
     return new Promise((resolve) => {
         void (async () => {
@@ -136,7 +137,7 @@ export function sendStreamMessage(
                 resolve();
             };
 
-            xhr.send(JSON.stringify({ content }));
+            xhr.send(JSON.stringify(mode === 'couple' ? { content, mode } : { content }));
         })();
     });
 }

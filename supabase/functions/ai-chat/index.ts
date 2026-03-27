@@ -123,13 +123,32 @@ function buildSystemPrompt(profile: ProfileInfo): string {
   );
 }
 
+// ─── Couple System Prompt ────────────────────────────────────────────────────
+
+function buildCoupleSystemPrompt(
+  myName: string,
+  partnerName: string,
+  datingStartDate: string | null,
+  helpFocus: string | null,
+): string {
+  const since = datingStartDate ? ` since ${datingStartDate}` : "";
+  const focus = helpFocus ? ` Focus: ${helpFocus}.` : "";
+  const today = new Date().toISOString().slice(0, 10);
+  return (
+    `You are a warm, empathetic AI relationship coach for ${myName} and ${partnerName}. ` +
+    `They are a couple${since}.${focus} Reply to both of them together. ` +
+    `Keep every reply to 2-4 sentences. Be warm, specific, never generic. ` +
+    `Ask one meaningful follow-up question when natural. Today: ${today}.`
+  );
+}
+
 // ─── Content Validation ──────────────────────────────────────────────────────
 
 const MAX_CONTENT_LENGTH = 2000;
 
 function validateContent(
   body: unknown,
-): { ok: true; content: string } | { ok: false; error: string } {
+): { ok: true; content: string; mode: string | null } | { ok: false; error: string } {
   if (
     typeof body !== "object" ||
     body === null ||
@@ -143,7 +162,9 @@ function validateContent(
     return { ok: false, error: "Content must be 1-2000 characters" };
   }
 
-  return { ok: true, content };
+  const rawMode = (body as Record<string, unknown>).mode;
+  const mode = typeof rawMode === "string" ? rawMode : null;
+  return { ok: true, content, mode };
 }
 
 // ─── Main Handler ────────────────────────────────────────────────────────────
@@ -186,6 +207,7 @@ Deno.serve(async (req) => {
   if (!validation.ok) return json({ error: validation.error }, 400);
 
   const content = validation.content;
+  const requestMode = validation.mode;
 
   // Service role client — only after auth verification
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -219,30 +241,81 @@ Deno.serve(async (req) => {
     content: string;
   }>;
 
+  // Build LLM context — couple or solo
+  const isCouple = requestMode === "couple" && !!profile?.couple_id;
+  let conversationType: "chat" | "couple_chat" = "chat";
+  let llmMessages: LLMMessage[] = [];
+
+  if (isCouple) {
+    const coupleId = profile!.couple_id!;
+    const { data: coupleRow } = await supabase
+      .from("couples")
+      .select("partner1_id, partner2_id")
+      .eq("id", coupleId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (coupleRow) {
+      const c = coupleRow as { partner1_id: string; partner2_id: string };
+      const partnerId = c.partner1_id === userId ? c.partner2_id : c.partner1_id;
+
+      const [partnerProfileResult, coupleHistResult] = await Promise.all([
+        supabase.from("profiles").select("name, help_focus").eq("id", partnerId).maybeSingle(),
+        supabase
+          .from("messages")
+          .select("role, content, user_id")
+          .or(`user_id.eq.${userId},user_id.eq.${partnerId}`)
+          .eq("conversation_type", "couple_chat")
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
+
+      conversationType = "couple_chat";
+      const myName = profile?.name ?? "Partner 1";
+      const partnerProfile = partnerProfileResult.data as { name: string | null; help_focus: string | null } | null;
+      const partnerName = partnerProfile?.name ?? "Partner 2";
+      const focus = profile?.help_focus ?? partnerProfile?.help_focus ?? null;
+      const couplePrompt = buildCoupleSystemPrompt(myName, partnerName, profile?.dating_start_date ?? null, focus);
+      const coupleHistory = (coupleHistResult.data ?? []) as Array<{ role: string; content: string; user_id: string }>;
+
+      llmMessages = [
+        { role: "system", content: couplePrompt },
+        ...coupleHistory.reverse().map((row): LLMMessage =>
+          row.role === "assistant"
+            ? { role: "assistant", content: row.content }
+            : { role: "user", content: `[${row.user_id === userId ? myName : partnerName}]: ${row.content}` }
+        ),
+        { role: "user", content: `[${myName}]: ${content}` },
+      ];
+    }
+  }
+
+  // Solo fallback (or primary)
+  if (llmMessages.length === 0) {
+    conversationType = "chat";
+    const soloPrompt = buildSystemPrompt({
+      name: profile?.name ?? null,
+      coupled: !!profile?.couple_id,
+      datingStartDate: profile?.dating_start_date ?? null,
+      helpFocus: profile?.help_focus ?? null,
+    });
+    llmMessages = [
+      { role: "system", content: soloPrompt },
+      ...historyRows.reverse().map((row) => ({
+        role: row.role as "user" | "assistant",
+        content: row.content,
+      })),
+      { role: "user", content },
+    ];
+  }
+
   // Save user message
   await supabase.from("messages").insert({
     user_id: userId,
     role: "user",
     content,
-    conversation_type: "chat",
+    conversation_type: conversationType,
   });
-
-  // Build LLM message array
-  const systemPrompt = buildSystemPrompt({
-    name: profile?.name ?? null,
-    coupled: !!profile?.couple_id,
-    datingStartDate: profile?.dating_start_date ?? null,
-    helpFocus: profile?.help_focus ?? null,
-  });
-
-  const llmMessages: LLMMessage[] = [
-    { role: "system", content: systemPrompt },
-    ...historyRows.reverse().map((row) => ({
-      role: row.role as "user" | "assistant",
-      content: row.content,
-    })),
-    { role: "user", content },
-  ];
 
   // Stream response via SSE
   const provider = new GroqProvider(groqKey);
@@ -263,7 +336,7 @@ Deno.serve(async (req) => {
           user_id: userId,
           role: "assistant",
           content: fullText,
-          conversation_type: "chat",
+          conversation_type: conversationType,
         });
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       } catch {

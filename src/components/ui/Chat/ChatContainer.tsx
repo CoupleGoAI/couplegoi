@@ -21,6 +21,7 @@ interface ChatContainerProps {
     messages: ChatMessage[];
     isLoading: boolean;
     mode: ChatMode;
+    isCoupled?: boolean;
     onModeChange: (mode: ChatMode) => void;
     onSend: (text: string) => void;
     onBack?: () => void;
@@ -31,6 +32,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     messages,
     isLoading,
     mode,
+    isCoupled = false,
     onModeChange,
     onSend,
     onBack,
@@ -44,7 +46,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             end={{ x: 0, y: 1 }}
         />
         <Header onBack={onBack} />
-        <ModeToggle mode={mode} onModeChange={onModeChange} />
+        <ModeToggle mode={mode} isCoupled={isCoupled} onModeChange={onModeChange} />
         <KeyboardAvoidingView
             style={styles.body}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -86,10 +88,11 @@ const Header: React.FC<HeaderProps> = ({ onBack }) => (
 
 interface ModeToggleProps {
     mode: ChatMode;
+    isCoupled: boolean;
     onModeChange: (mode: ChatMode) => void;
 }
 
-const ModeToggle: React.FC<ModeToggleProps> = ({ mode, onModeChange }) => (
+const ModeToggle: React.FC<ModeToggleProps> = ({ mode, isCoupled, onModeChange }) => (
     <View style={styles.toggleRow}>
         <View style={styles.toggleContainer}>
             <TouchableOpacity
@@ -110,9 +113,29 @@ const ModeToggle: React.FC<ModeToggleProps> = ({ mode, onModeChange }) => (
                     <Text style={styles.toggleTextInactive}>Solo</Text>
                 )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.toggleTab} activeOpacity={0.5} disabled>
-                <Ionicons name="lock-closed" size={11} color={colors.gray} style={styles.lockIcon} />
-                <Text style={styles.toggleTextLocked}>Together</Text>
+            <TouchableOpacity
+                style={styles.toggleTab}
+                onPress={() => isCoupled && onModeChange('couple')}
+                activeOpacity={isCoupled ? 0.8 : 0.5}
+                disabled={!isCoupled}
+            >
+                {mode === 'couple' ? (
+                    <LinearGradient
+                        colors={gradients.brand}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.toggleActive}
+                    >
+                        <Text style={styles.toggleTextActive}>Together</Text>
+                    </LinearGradient>
+                ) : isCoupled ? (
+                    <Text style={styles.toggleTextInactive}>Together</Text>
+                ) : (
+                    <>
+                        <Ionicons name="lock-closed" size={11} color={colors.gray} style={styles.lockIcon} />
+                        <Text style={styles.toggleTextLocked}>Together</Text>
+                    </>
+                )}
             </TouchableOpacity>
         </View>
     </View>

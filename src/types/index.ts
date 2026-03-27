@@ -57,10 +57,13 @@ export type ChatMode = 'single' | 'couple';
 /** A single message in the AI chat conversation */
 export interface ChatMessage {
     id: string;
-    role: 'user' | 'assistant';
+    /** 'user' = current user, 'assistant' = AI, 'partner' = other user in couple mode */
+    role: 'user' | 'assistant' | 'partner';
     text: string;
     timestamp: number;
     status?: 'sending' | 'sent' | 'error';
+    /** Display name shown above partner bubbles in couple mode */
+    senderName?: string;
 }
 
 /** Result of calling the AI sendMessage function */
