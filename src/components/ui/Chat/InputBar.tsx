@@ -1,5 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withTiming,
+    withSpring,
+    withSequence,
+    Easing,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, gradients, radii, spacing, shadows, fontFamilies, fontSize } from '@/theme/tokens';
@@ -11,13 +19,32 @@ interface InputBarProps {
 
 export const InputBar: React.FC<InputBarProps> = React.memo(({ onSend, disabled }) => {
     const [text, setText] = useState('');
+    const scale = useSharedValue(1);
+    const rotation = useSharedValue(0);
+
+    const sendAnimStyle = useAnimatedStyle(() => ({
+        transform: [
+            { scale: scale.value },
+            { rotate: `${rotation.value}deg` },
+        ],
+    }));
 
     const handleSend = useCallback(() => {
         const trimmed = text.trim();
         if (!trimmed || disabled) return;
+
+        scale.value = withSequence(
+            withTiming(1.12, { duration: 200, easing: Easing.out(Easing.cubic) }),
+            withSpring(1, { damping: 14, stiffness: 180 }),
+        );
+        rotation.value = withSequence(
+            withTiming(2520, { duration: 1800, easing: Easing.out(Easing.poly(3)) }),
+            withTiming(0, { duration: 1 }),
+        );
+
         onSend(trimmed);
         setText('');
-    }, [text, disabled, onSend]);
+    }, [text, disabled, onSend, scale, rotation]);
 
     const canSend = text.trim().length > 0 && !disabled;
 
@@ -29,26 +56,35 @@ export const InputBar: React.FC<InputBarProps> = React.memo(({ onSend, disabled 
                 onChangeText={setText}
                 placeholder="Say something..."
                 placeholderTextColor={colors.gray}
+                selectionColor={colors.primary}
                 multiline
                 maxLength={2000}
-                returnKeyType="default"
+                returnKeyType="send"
+                blurOnSubmit
+                onSubmitEditing={handleSend}
+                textAlignVertical="top"
                 editable={!disabled}
             />
-            <TouchableOpacity
-                onPress={handleSend}
-                disabled={!canSend}
-                activeOpacity={0.85}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-                <LinearGradient
-                    colors={canSend ? gradients.brand : gradients.disabled}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
+            <Animated.View style={sendAnimStyle}>
+                <TouchableOpacity
+                    onPress={handleSend}
+                    disabled={!canSend}
+                    activeOpacity={0.75}
                     style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Send message"
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                    <Ionicons name="arrow-up" size={20} color={colors.white} />
-                </LinearGradient>
-            </TouchableOpacity>
+                    <LinearGradient
+                        colors={canSend ? gradients.brand : gradients.disabled}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.sendGradient}
+                    >
+                        <Ionicons name="heart" size={22} color={colors.white} />
+                    </LinearGradient>
+                </TouchableOpacity>
+            </Animated.View>
         </View>
     );
 });
@@ -74,21 +110,28 @@ const styles = StyleSheet.create({
         backgroundColor: colors.muted,
         borderRadius: radii.radiusMd,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.md,
-        paddingBottom: spacing.md,
+        paddingVertical: spacing.md,
         maxHeight: 120,
         minHeight: 48,
+        textAlignVertical: 'top',
     },
     sendButton: {
         width: 44,
         height: 44,
         borderRadius: radii.radiusFull,
-        alignItems: 'center',
-        justifyContent: 'center',
+        overflow: 'hidden',
         marginBottom: 2,
         ...shadows.glowPrimary,
     },
     sendButtonDisabled: {
-        ...shadows.none,
+        opacity: 0.5,
+        shadowOpacity: 0,
+        elevation: 0,
+    },
+    sendGradient: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });

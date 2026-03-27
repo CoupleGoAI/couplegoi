@@ -1,32 +1,142 @@
-/**
- * AI chat data layer.
- *
- * The sendMessage function is the ONLY integration point for LLM providers.
- * Swap this implementation to connect any provider (Claude, OpenAI, etc.).
- * The contract is: text in → Promise<ChatResult> out.
- */
+import { supabase } from '@data/supabase';
+import type { ChatMessage, ChatHistoryResult } from '@/types';
 
-import type { ChatResult } from '@/types/index';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const HISTORY_LIMIT = 20;
 
-const STUB_DELAY_MS = 900;
+interface MessageRow {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    created_at: string;
+}
 
-const PLACEHOLDER_RESPONSES: readonly string[] = [
-    "I'm here for you. Tell me more about what's on your mind.",
-    "That sounds meaningful. How does it make you feel?",
-    "I hear you. Would you like to explore that a little more?",
-    "Thank you for sharing that with me. What would feel most supportive right now?",
-    "It takes courage to open up. I'm listening.",
-];
+export interface StreamCallbacks {
+    onChunk: (text: string) => void;
+    onDone: () => void;
+    onError: (message: string) => void;
+}
 
-/**
- * Send a message to the AI and receive a reply.
- *
- * STUB: returns a random placeholder after a simulated delay.
- * Replace this function body with a real LLM call — the signature stays the same.
- */
-export async function sendMessage(_text: string): Promise<ChatResult> {
-    await new Promise<void>((resolve) => setTimeout(resolve, STUB_DELAY_MS));
-    const idx = Math.floor(Math.random() * PLACEHOLDER_RESPONSES.length);
-    const reply = PLACEHOLDER_RESPONSES[idx] ?? "I'm here for you.";
-    return { ok: true, reply };
+interface SSEChunk {
+    t?: string;
+    e?: string;
+}
+
+export async function fetchChatHistory(): Promise<ChatHistoryResult> {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+        return { ok: false, error: 'Not authenticated.' };
+    }
+
+    const { data, error } = await supabase
+        .from('messages')
+        .select('id, role, content, created_at')
+        .eq('user_id', sessionData.session.user.id)
+        .eq('conversation_type', 'chat')
+        .order('created_at', { ascending: false })
+        .limit(HISTORY_LIMIT);
+
+    if (error) {
+        return { ok: false, error: 'Failed to load history.' };
+    }
+
+    const rows = (data ?? []) as MessageRow[];
+    const messages: ChatMessage[] = rows.map((row) => ({
+        id: row.id,
+        role: row.role,
+        text: row.content,
+        timestamp: new Date(row.created_at).getTime(),
+        status: 'sent' as const,
+    }));
+
+    messages.reverse();
+    return { ok: true, data: messages };
+}
+
+export function sendStreamMessage(
+    content: string,
+    callbacks: StreamCallbacks,
+): Promise<void> {
+    return new Promise((resolve) => {
+        void (async () => {
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData.session) {
+                callbacks.onError('Not authenticated. Please sign in again.');
+                resolve();
+                return;
+            }
+
+            const token = sessionData.session.access_token;
+            const url = `${SUPABASE_URL}/functions/v1/ai-chat`;
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            xhr.setRequestHeader('apikey', SUPABASE_ANON_KEY);
+            xhr.timeout = 30000;
+
+            let lastLength = 0;
+            let buffer = '';
+            let isDone = false;
+
+            xhr.onprogress = () => {
+                const newText = xhr.responseText.slice(lastLength);
+                lastLength = xhr.responseText.length;
+                buffer += newText;
+                const lines = buffer.split('\n');
+                buffer = lines.pop() ?? '';
+
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith('data: ')) continue;
+                    const data = trimmed.slice(6).trim();
+
+                    if (data === '[DONE]') {
+                        isDone = true;
+                        callbacks.onDone();
+                        return;
+                    }
+
+                    try {
+                        const parsed = JSON.parse(data) as SSEChunk;
+                        if (parsed.e) {
+                            isDone = true;
+                            callbacks.onError('Something went wrong. Please try again.');
+                            return;
+                        }
+                        if (parsed.t) {
+                            callbacks.onChunk(parsed.t);
+                        }
+                    } catch {
+                        // Skip malformed SSE chunks
+                    }
+                }
+            };
+
+            xhr.onload = () => {
+                if (!isDone) {
+                    if (xhr.status !== 200) {
+                        callbacks.onError('Failed to reach AI. Please try again.');
+                    } else {
+                        callbacks.onDone();
+                    }
+                }
+                resolve();
+            };
+
+            xhr.onerror = () => {
+                callbacks.onError('Network error. Please check your connection.');
+                resolve();
+            };
+
+            xhr.ontimeout = () => {
+                callbacks.onError('Request timed out. Please try again.');
+                resolve();
+            };
+
+            xhr.send(JSON.stringify({ content }));
+        })();
+    });
 }

@@ -60,9 +60,15 @@ export interface ChatMessage {
     role: 'user' | 'assistant';
     text: string;
     timestamp: number;
+    status?: 'sending' | 'sent' | 'error';
 }
 
 /** Result of calling the AI sendMessage function */
 export type ChatResult =
     | { ok: true; reply: string }
+    | { ok: false; error: string };
+
+/** Result of fetching chat history from the server */
+export type ChatHistoryResult =
+    | { ok: true; data: ChatMessage[] }
     | { ok: false; error: string };

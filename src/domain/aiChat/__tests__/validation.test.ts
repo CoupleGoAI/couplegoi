@@ -67,3 +67,21 @@ describe('createAssistantMessage', () => {
         expect(createAssistantMessage('  reply  ').text).toBe('  reply  ');
     });
 });
+
+describe('message status field', () => {
+    it('createUserMessage does not set status by default', () => {
+        const msg = createUserMessage('hello');
+        expect(msg.status).toBeUndefined();
+    });
+
+    it('createAssistantMessage does not set status by default', () => {
+        const msg = createAssistantMessage('reply');
+        expect(msg.status).toBeUndefined();
+    });
+
+    it('status field is assignable after creation', () => {
+        const msg = createUserMessage('hello');
+        const withStatus = { ...msg, status: 'sending' as const };
+        expect(withStatus.status).toBe('sending');
+    });
+});
