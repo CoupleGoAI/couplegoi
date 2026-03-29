@@ -124,6 +124,7 @@ export function subscribeToCoupleChatMessages(
                     timestamp: new Date(row.created_at).getTime(),
                     status: 'sent',
                     senderName: row.role !== 'assistant' ? (partnerName ?? 'Partner') : undefined,
+                    isNew: row.role === 'assistant',
                 });
             },
         )

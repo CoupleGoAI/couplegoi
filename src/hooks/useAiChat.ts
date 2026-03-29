@@ -87,7 +87,7 @@ export function useAiChat(mode: ChatMode): UseAiChatReturn {
         const channel = subscribeToCoupleChatMessages(
             partnerInfo.id,
             partnerInfo.name,
-            (msg) => setMessages((prev) => [...prev, msg]),
+            (msg) => setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]),
         );
         return () => { void supabase.removeChannel(channel); };
     }, [mode, partnerInfo]);

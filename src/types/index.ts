@@ -64,6 +64,8 @@ export interface ChatMessage {
     status?: 'sending' | 'sent' | 'error';
     /** Display name shown above partner bubbles in couple mode */
     senderName?: string;
+    /** True for assistant messages received via realtime (triggers typewriter without emoji strip) */
+    isNew?: boolean;
 }
 
 /** Result of calling the AI sendMessage function */

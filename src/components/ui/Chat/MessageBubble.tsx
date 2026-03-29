@@ -121,38 +121,37 @@ const PUNCTUATION_PAUSE: Readonly<Record<string, number>> = {
 
 // ─── Assistant Bubble with Typewriter + Glow ─────────────────────────────────
 
-const AssistantBubble: React.FC<{ text: string; isStreaming: boolean }> = React.memo(
-    ({ text, isStreaming }) => {
-        const [displayed, setDisplayed] = useState(() => (isStreaming ? '' : text));
+interface AssistantBubbleProps {
+    text: string;
+    isStreaming: boolean;
+    /** True only for messages that were brand-new streaming when mounted (frozen at parent). */
+    playTypewriter: boolean;
+}
+
+const AssistantBubble: React.FC<AssistantBubbleProps> = React.memo(
+    ({ text, isStreaming, playTypewriter }) => {
+        // History messages start at full text (no animation).
+        // Fresh streaming messages start empty — typewriter kicks in after stream ends.
+        const [displayed, setDisplayed] = useState(() => (playTypewriter ? '' : text));
         const bufferRef = useRef(text);
-        const displayedLenRef = useRef(isStreaming ? 0 : text.length);
+        const displayedLenRef = useRef(playTypewriter ? 0 : text.length);
         const rafRef = useRef<number | null>(null);
         const nextFireRef = useRef<number>(0);
 
-        // Keep buffer current as chunks arrive
+        // Keep buffer current as chunks arrive (silent — no typing until stream ends)
         useEffect(() => {
             bufferRef.current = text;
         }, [text]);
 
-        // Fast-forward to full text when streaming ends
+        // Typewriter: starts only after the full message has been received
         useEffect(() => {
-            if (!isStreaming) {
-                if (rafRef.current !== null) {
-                    cancelAnimationFrame(rafRef.current);
-                    rafRef.current = null;
-                }
-                setDisplayed(bufferRef.current);
-                displayedLenRef.current = bufferRef.current.length;
-            }
-        }, [isStreaming]);
-
-        // RAF-driven typing loop
-        useEffect(() => {
-            if (!isStreaming) return;
+            if (isStreaming || !playTypewriter) return;
+            // History messages are already at full length — nothing to animate
+            if (displayedLenRef.current >= bufferRef.current.length) return;
 
             function tick(ts: number): void {
                 if (displayedLenRef.current >= bufferRef.current.length) {
-                    rafRef.current = requestAnimationFrame(tick);
+                    rafRef.current = null;
                     return;
                 }
                 if (ts < nextFireRef.current) {
@@ -175,7 +174,7 @@ const AssistantBubble: React.FC<{ text: string; isStreaming: boolean }> = React.
                     rafRef.current = null;
                 }
             };
-        }, [isStreaming]);
+        }, [isStreaming, playTypewriter]);
 
         // Glow pulse while streaming (effect E)
         const glowRadius = useSharedValue(4);
@@ -230,9 +229,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({ message
     const isAssistant = message.role === 'assistant';
     const isStreaming = isAssistant && message.status === 'sending';
 
-    // Frozen at mount: true only for messages that were streaming when added.
-    // Prevents emoji strip from ever appearing on history messages.
+    // Frozen at mount: true only for messages that were streaming when first added.
+    // Prevents emoji strip from appearing on history or realtime-received messages.
     const [showEmojiStrip] = useState(isStreaming);
+    // Frozen at mount: typewriter plays for sender's streamed message OR for a fresh
+    // realtime-received assistant message (isNew=true, no emoji strip for these).
+    const [playTypewriter] = useState(isStreaming || (isAssistant && (message.isNew ?? false)));
 
     return (
         <Animated.View
@@ -262,7 +264,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({ message
                     {showEmojiStrip && (
                         <EmojiLoopStrip messageId={message.id} isStreaming={isStreaming} />
                     )}
-                    <AssistantBubble text={message.text} isStreaming={isStreaming} />
+                    {(!isStreaming || !showEmojiStrip) && (
+                        <AssistantBubble
+                            text={message.text}
+                            isStreaming={isStreaming}
+                            playTypewriter={playTypewriter}
+                        />
+                    )}
                 </>
             )}
         </Animated.View>
