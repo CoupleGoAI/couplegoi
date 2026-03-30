@@ -16,7 +16,7 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-// ─── LLM Provider Abstraction ────────────────────────────────────────────────
+// ─── LLM Provider ────────────────────────────────────────────────────────────
 
 interface LLMMessage {
   role: "system" | "user" | "assistant";
@@ -47,8 +47,8 @@ class GroqProvider implements LLMProvider {
           model: "llama-3.3-70b-versatile",
           messages,
           stream: true,
-          max_tokens: 250,
-          temperature: 0.8,
+          max_tokens: 200,
+          temperature: 0.75,
         }),
       },
     );
@@ -97,7 +97,7 @@ class GroqProvider implements LLMProvider {
   }
 }
 
-// ─── System Prompt ───────────────────────────────────────────────────────────
+// ─── System Prompts ───────────────────────────────────────────────────────────
 
 interface ProfileInfo {
   name: string | null;
@@ -107,23 +107,23 @@ interface ProfileInfo {
 }
 
 function buildSystemPrompt(profile: ProfileInfo): string {
-  const userName = profile.name ?? "this user";
+  const name = profile.name ?? "friend";
   const relationship = profile.coupled
     ? `in a relationship${profile.datingStartDate ? ` since ${profile.datingStartDate}` : ""}`
     : "single or exploring";
-  const focus = profile.helpFocus ? ` Focus: ${profile.helpFocus}.` : "";
+  const focus = profile.helpFocus
+    ? ` Their focus right now: ${profile.helpFocus}.`
+    : "";
   const today = new Date().toISOString().slice(0, 10);
 
-  return (
-    `You are a warm, empathetic AI companion in CoupleGoAI for ${userName}. ` +
-    `Keep every reply to 2-4 sentences. Be warm, specific, and never generic. ` +
-    `Ask one meaningful follow-up question when natural. ` +
-    `Relationship: ${relationship}.${focus} ` +
-    `Today: ${today}.`
-  );
-}
+  return `You are ${name}'s trusted companion in CoupleGoAI — warm, perceptive, and precise. Think of yourself as the brilliant friend who notices what's really happening and always finds the right words.
 
-// ─── Couple System Prompt ────────────────────────────────────────────────────
+Keep every reply under 3 sentences. Start by naming what ${name} is actually feeling or experiencing, using their own words back to them. Then offer one honest insight — something that goes a little deeper than the surface. If it feels natural, end with one question that opens something new for ${name} to sit with.
+
+Be warm but not saccharine. Be specific, never generic. Never give advice unless explicitly asked. Never use comfort clichés like "I hear you" or "that must be hard". Never ask more than one question.
+
+About ${name}: ${relationship}.${focus} Today: ${today}.`;
+}
 
 function buildCoupleSystemPrompt(
   myName: string,
@@ -132,14 +132,28 @@ function buildCoupleSystemPrompt(
   helpFocus: string | null,
 ): string {
   const since = datingStartDate ? ` since ${datingStartDate}` : "";
-  const focus = helpFocus ? ` Focus: ${helpFocus}.` : "";
+  const focus = helpFocus ? ` Their shared focus: ${helpFocus}.` : "";
   const today = new Date().toISOString().slice(0, 10);
-  return (
-    `You are a warm, empathetic AI relationship coach for ${myName} and ${partnerName}. ` +
-    `They are a couple${since}.${focus} Reply to both of them together. ` +
-    `Keep every reply to 2-4 sentences. Be warm, specific, never generic. ` +
-    `Ask one meaningful follow-up question when natural. Today: ${today}.`
-  );
+
+  return `You are the trusted companion of ${myName} and ${partnerName} in CoupleGoAI — warm, perceptive, and completely non-judgmental. You're here for both of them equally.
+
+Keep every reply under 3 sentences. Start by naming what was just shared — acknowledge it precisely without taking sides. Then offer one insight that helps both of them see the situation a little more clearly. If it fits naturally, close with one question they can both sit with together.
+
+Be warm, specific, and honest. Never take sides, never use generic reassurances, never give unsolicited advice, and never ask more than one question.
+
+Their context: couple${since}.${focus} Today: ${today}.`;
+}
+
+// ─── Prompt Logging (local dev only) ─────────────────────────────────────────
+
+async function logPrompt(systemPrompt: string, mode: "solo" | "couple"): Promise<void> {
+  try {
+    const separator = "─".repeat(60);
+    const entry = `\n${separator}\n[${new Date().toISOString()}] mode=${mode}\n\n${systemPrompt}\n`;
+    await Deno.writeTextFile("./prompt.log", entry, { append: true });
+  } catch {
+    // Silent in production — only works during local dev (supabase functions serve)
+  }
 }
 
 // ─── Content Validation ──────────────────────────────────────────────────────
@@ -228,7 +242,6 @@ Deno.serve(async (req) => {
       .limit(20),
   ]);
 
-  // Graceful degradation: proceed with defaults on fetch failure
   const profile = profileResult.data as {
     name: string | null;
     help_focus: string | null;
@@ -245,6 +258,7 @@ Deno.serve(async (req) => {
   const isCouple = requestMode === "couple" && !!profile?.couple_id;
   let conversationType: "chat" | "couple_chat" = "chat";
   let llmMessages: LLMMessage[] = [];
+  let systemPromptForLog = "";
 
   if (isCouple) {
     const coupleId = profile!.couple_id!;
@@ -276,6 +290,8 @@ Deno.serve(async (req) => {
       const partnerName = partnerProfile?.name ?? "Partner 2";
       const focus = profile?.help_focus ?? partnerProfile?.help_focus ?? null;
       const couplePrompt = buildCoupleSystemPrompt(myName, partnerName, profile?.dating_start_date ?? null, focus);
+      systemPromptForLog = couplePrompt;
+
       const coupleHistory = (coupleHistResult.data ?? []) as Array<{ role: string; content: string; user_id: string }>;
 
       llmMessages = [
@@ -299,6 +315,8 @@ Deno.serve(async (req) => {
       datingStartDate: profile?.dating_start_date ?? null,
       helpFocus: profile?.help_focus ?? null,
     });
+    systemPromptForLog = soloPrompt;
+
     llmMessages = [
       { role: "system", content: soloPrompt },
       ...historyRows.reverse().map((row) => ({
@@ -308,6 +326,10 @@ Deno.serve(async (req) => {
       { role: "user", content },
     ];
   }
+
+  // Log prompt for local development inspection
+  const logMode = isCouple ? "couple" : "solo";
+  void logPrompt(systemPromptForLog, logMode);
 
   // Save user message
   await supabase.from("messages").insert({
@@ -331,7 +353,6 @@ Deno.serve(async (req) => {
             encoder.encode(`data: ${JSON.stringify({ t: chunk })}\n\n`),
           );
         }
-        // Persist AI reply before signaling done
         await supabase.from("messages").insert({
           user_id: userId,
           role: "assistant",

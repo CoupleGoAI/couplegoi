@@ -29,3 +29,4 @@ yarn-error.*
 # Ruflo / claude-flow runtime
 .claude-flow/
 .claude/settings.local.json
+prompt.log
