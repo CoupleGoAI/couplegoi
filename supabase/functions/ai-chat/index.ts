@@ -99,6 +99,23 @@ class GroqProvider implements LLMProvider {
 
 // ─── System Prompts ───────────────────────────────────────────────────────────
 
+async function fetchPromptTemplate(
+  supabaseUrl: string,
+  serviceKey: string,
+  filename: "chat_solo.txt" | "chat_couple.txt",
+): Promise<string> {
+  const url = `${supabaseUrl}/storage/v1/object/prompts/${filename}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+  });
+  if (!res.ok) throw new Error(`Failed to fetch prompt template: ${filename}`);
+  return res.text();
+}
+
+function interpolate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? "");
+}
+
 interface ProfileInfo {
   name: string | null;
   coupled: boolean;
@@ -106,42 +123,38 @@ interface ProfileInfo {
   helpFocus: string | null;
 }
 
-function buildSystemPrompt(profile: ProfileInfo): string {
-  const name = profile.name ?? "friend";
-  const relationship = profile.coupled
-    ? `in a relationship${profile.datingStartDate ? ` since ${profile.datingStartDate}` : ""}`
-    : "single or exploring";
-  const focus = profile.helpFocus
-    ? ` Their focus right now: ${profile.helpFocus}.`
-    : "";
-  const today = new Date().toISOString().slice(0, 10);
-
-  return `You are ${name}'s trusted companion in CoupleGoAI — warm, perceptive, and precise. Think of yourself as the brilliant friend who notices what's really happening and always finds the right words.
-
-Keep every reply under 3 sentences. Start by naming what ${name} is actually feeling or experiencing, using their own words back to them. Then offer one honest insight — something that goes a little deeper than the surface. If it feels natural, end with one question that opens something new for ${name} to sit with.
-
-Be warm but not saccharine. Be specific, never generic. Never give advice unless explicitly asked. Never use comfort clichés like "I hear you" or "that must be hard". Never ask more than one question.
-
-About ${name}: ${relationship}.${focus} Today: ${today}.`;
+async function buildSystemPrompt(
+  supabaseUrl: string,
+  serviceKey: string,
+  profile: ProfileInfo,
+): Promise<string> {
+  const template = await fetchPromptTemplate(supabaseUrl, serviceKey, "chat_solo.txt");
+  return interpolate(template, {
+    NAME: profile.name ?? "friend",
+    RELATIONSHIP_STATUS: profile.coupled
+      ? `in a relationship${profile.datingStartDate ? ` since ${profile.datingStartDate}` : ""}`
+      : "single or exploring",
+    FOCUS: profile.helpFocus ?? "general relationship support",
+    TODAY_DATE: new Date().toISOString().slice(0, 10),
+  });
 }
 
-function buildCoupleSystemPrompt(
+async function buildCoupleSystemPrompt(
+  supabaseUrl: string,
+  serviceKey: string,
   myName: string,
   partnerName: string,
   datingStartDate: string | null,
   helpFocus: string | null,
-): string {
-  const since = datingStartDate ? ` since ${datingStartDate}` : "";
-  const focus = helpFocus ? ` Their shared focus: ${helpFocus}.` : "";
-  const today = new Date().toISOString().slice(0, 10);
-
-  return `You are the trusted companion of ${myName} and ${partnerName} in CoupleGoAI — warm, perceptive, and completely non-judgmental. You're here for both of them equally.
-
-Keep every reply under 3 sentences. Start by naming what was just shared — acknowledge it precisely without taking sides. Then offer one insight that helps both of them see the situation a little more clearly. If it fits naturally, close with one question they can both sit with together.
-
-Be warm, specific, and honest. Never take sides, never use generic reassurances, never give unsolicited advice, and never ask more than one question.
-
-Their context: couple${since}.${focus} Today: ${today}.`;
+): Promise<string> {
+  const template = await fetchPromptTemplate(supabaseUrl, serviceKey, "chat_couple.txt");
+  return interpolate(template, {
+    NAME: myName,
+    PARTNER_NAME: partnerName,
+    RELATIONSHIP_STATUS: datingStartDate ? `together since ${datingStartDate}` : "together",
+    FOCUS: helpFocus ?? "general relationship support",
+    TODAY_DATE: new Date().toISOString().slice(0, 10),
+  });
 }
 
 // ─── Prompt Logging (local dev only) ─────────────────────────────────────────
@@ -289,7 +302,7 @@ Deno.serve(async (req) => {
       const partnerProfile = partnerProfileResult.data as { name: string | null; help_focus: string | null } | null;
       const partnerName = partnerProfile?.name ?? "Partner 2";
       const focus = profile?.help_focus ?? partnerProfile?.help_focus ?? null;
-      const couplePrompt = buildCoupleSystemPrompt(myName, partnerName, profile?.dating_start_date ?? null, focus);
+      const couplePrompt = await buildCoupleSystemPrompt(supabaseUrl, supabaseServiceKey, myName, partnerName, profile?.dating_start_date ?? null, focus);
       systemPromptForLog = couplePrompt;
 
       const coupleHistory = (coupleHistResult.data ?? []) as Array<{ role: string; content: string; user_id: string }>;
@@ -309,7 +322,7 @@ Deno.serve(async (req) => {
   // Solo fallback (or primary)
   if (llmMessages.length === 0) {
     conversationType = "chat";
-    const soloPrompt = buildSystemPrompt({
+    const soloPrompt = await buildSystemPrompt(supabaseUrl, supabaseServiceKey, {
       name: profile?.name ?? null,
       coupled: !!profile?.couple_id,
       datingStartDate: profile?.dating_start_date ?? null,
