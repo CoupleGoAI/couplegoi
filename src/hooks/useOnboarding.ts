@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOnboardingStore } from '@store/onboardingStore';
 import { useAuthStore } from '@store/authStore';
 import { usePairingStore } from '@store/pairingStore';
@@ -9,6 +9,7 @@ import {
 import * as authData from '@data/auth';
 import { sanitizeMessage } from '@domain/onboarding/validation';
 import type { OnboardingMessage } from '@store/onboardingStore';
+import type { InteractivePayload } from '@/types/index';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,8 @@ export interface UseOnboardingReturn {
   sendMessage: (text: string) => Promise<void>;
   isInitializing: boolean;
   startPairing: () => Promise<void>;
+  hasActivePicker: boolean;
+  confirmDatePicker: (isoDate: string) => void;
 }
 
 // ─── ID Helper ────────────────────────────────────────────────────────────────
@@ -53,6 +56,7 @@ function generateMessageId(prefix: string): string {
  */
 export function useOnboarding(): UseOnboardingReturn {
   const [isInitializing, setIsInitializing] = useState(true);
+  const [activePicker, setActivePicker] = useState<InteractivePayload | null>(null);
 
   // Store selectors — always use individual selectors (never spread whole store)
   const messages = useOnboardingStore((s) => s.messages);
@@ -70,6 +74,21 @@ export function useOnboarding(): UseOnboardingReturn {
   const setUser = useAuthStore((s) => s.setUser);
   const setPairingSkipped = useAuthStore((s) => s.setPairingSkipped);
   const setPairingEntryScreen = usePairingStore((s) => s.setEntryScreen);
+
+  // Derive display messages — append synthetic interactive message when a picker is active
+  const displayMessages = useMemo((): OnboardingMessage[] => {
+    if (!activePicker) return messages;
+    return [
+      ...messages,
+      {
+        id: 'interactive-picker',
+        role: 'interactive',
+        content: '',
+        createdAt: Date.now(),
+        interactive: activePicker,
+      },
+    ];
+  }, [messages, activePicker]);
 
   // Prevent double-initialization (React Strict Mode / fast refresh)
   const hasInitialized = useRef(false);
@@ -121,9 +140,24 @@ export function useOnboarding(): UseOnboardingReturn {
       setCurrentQuestion(questionIndex);
       setIsComplete(complete);
       setLoading(false);
+
+      // questionIndex === 1 means the AI just asked for the birth date — show picker
+      if (questionIndex === 1 && !complete) {
+        const maxYear = new Date().getFullYear() - 16;
+        setActivePicker({ type: 'date-picker', maxDate: `${maxYear}-12-31` });
+      }
     },
     // Zustand actions are stable references; userId is stable post-auth
     [addMessage, setLoading, setError, setCurrentQuestion, setIsComplete],
+  );
+
+  /** Called when the date picker emits a confirmed ISO date. */
+  const confirmDatePicker = useCallback(
+    (isoDate: string) => {
+      setActivePicker(null);
+      void sendMessage(isoDate);
+    },
+    [sendMessage],
   );
 
   /**
@@ -189,7 +223,7 @@ export function useOnboarding(): UseOnboardingReturn {
   }, []);
 
   return {
-    messages,
+    messages: displayMessages,
     isComplete,
     currentQuestion,
     totalQuestions: TOTAL_ONBOARDING_QUESTIONS,
@@ -198,5 +232,7 @@ export function useOnboarding(): UseOnboardingReturn {
     sendMessage,
     isInitializing,
     startPairing,
+    hasActivePicker: activePicker !== null,
+    confirmDatePicker,
   };
 }

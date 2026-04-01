@@ -26,6 +26,7 @@ import { DevMenu } from '@components/ui/DevMenu';
 import { HeartActionButton } from '@components/ui/HeartActionButton';
 import { ChatBubble } from '@components/chat/ChatBubble';
 import { TypingIndicator } from '@components/chat/TypingIndicator';
+import { InteractiveMessageBubble } from '@components/chat/interactive/InteractiveMessageBubble';
 import { useOnboarding } from '@hooks/useOnboarding';
 import { useAuth } from '@hooks/useAuth';
 import {
@@ -81,6 +82,8 @@ export function OnboardingProfileScreen(_props: OnboardingProfileScreenProps): R
         sendMessage,
         isInitializing,
         startPairing,
+        hasActivePicker,
+        confirmDatePicker,
     } = useOnboarding();
 
     const [inputText, setInputText] = useState('');
@@ -149,8 +152,19 @@ export function OnboardingProfileScreen(_props: OnboardingProfileScreenProps): R
     }, [inputText, isLoading, showTyping, sendMessage, sendScale, sendRotation]);
 
     const renderMessage = useCallback(
-        ({ item }: ListRenderItemInfo<OnboardingMessage>) => <ChatBubble message={item} />,
-        [],
+        ({ item }: ListRenderItemInfo<OnboardingMessage>) => {
+            if (item.role === 'interactive' && item.interactive !== undefined) {
+                return (
+                    <InteractiveMessageBubble
+                        payload={item.interactive}
+                        onConfirm={confirmDatePicker}
+                    />
+                );
+            }
+            // role is narrowed to 'user' | 'assistant' here; ChatBubble expects exactly that
+            return <ChatBubble message={{ id: item.id, role: item.role as 'user' | 'assistant', content: item.content, createdAt: item.createdAt }} />;
+        },
+        [confirmDatePicker],
     );
 
     const keyExtractor = useCallback((item: OnboardingMessage) => item.id, []);
@@ -320,7 +334,7 @@ export function OnboardingProfileScreen(_props: OnboardingProfileScreenProps): R
                             <TextInput
                                 value={inputText}
                                 onChangeText={setInputText}
-                                placeholder="Type your answer…"
+                                placeholder={hasActivePicker ? 'Choose a date above ↑' : 'Type your answer…'}
                                 placeholderTextColor={colors.gray}
                                 className="flex-1 bg-white rounded-md border-borderDefault px-lg py-md text-base text-foreground"
                                 style={styles.input}
@@ -329,7 +343,7 @@ export function OnboardingProfileScreen(_props: OnboardingProfileScreenProps): R
                                 returnKeyType="send"
                                 onSubmitEditing={handleSend}
                                 blurOnSubmit
-                                editable={!isLoading && !showTyping}
+                                editable={!isLoading && !showTyping && !hasActivePicker}
                             />
                             <Animated.View style={sendAnimatedStyle}>
                                 <HeartActionButton

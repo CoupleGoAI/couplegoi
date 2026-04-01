@@ -1,13 +1,16 @@
 import { create } from 'zustand';
+import type { InteractivePayload } from '@/types/index';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface OnboardingMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'interactive';
   content: string;
   /** Unix ms timestamp — used for display only, never persisted here */
   createdAt: number;
+  /** Present only when role === 'interactive' */
+  interactive?: InteractivePayload;
 }
 
 interface OnboardingState {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import Animated, {
     FadeInUp,
@@ -232,65 +232,116 @@ const AssistantBubble: React.FC<AssistantBubbleProps> = React.memo(
 );
 AssistantBubble.displayName = 'AssistantBubble';
 
+// ─── Avatar Circle ────────────────────────────────────────────────────────────
+
+interface AvatarCircleProps {
+    uri: string | null | undefined;
+    initial: string;
+    bgColor: string;
+}
+
+const AvatarCircle: React.FC<AvatarCircleProps> = ({ uri, initial, bgColor }) => {
+    if (uri !== null && uri !== undefined && uri.length > 0) {
+        return <Image source={{ uri }} style={styles.avatar} />;
+    }
+    return (
+        <View style={[styles.avatarFallback, { backgroundColor: bgColor }]}>
+            <Text style={styles.avatarInitial}>{initial.charAt(0).toUpperCase()}</Text>
+        </View>
+    );
+};
+
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 
 interface MessageBubbleProps {
     message: ChatMessage;
+    userAvatar?: string | null;
+    userName?: string | null;
+    partnerAvatar?: string | null;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({ message }) => {
-    const isUser = message.role === 'user';
-    const isPartner = message.role === 'partner';
-    const isAssistant = message.role === 'assistant';
-    const isStreaming = isAssistant && message.status === 'sending';
+export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
+    ({ message, userAvatar, userName, partnerAvatar }) => {
+        const isUser = message.role === 'user';
+        const isPartner = message.role === 'partner';
+        const isAssistant = message.role === 'assistant';
+        const isStreaming = isAssistant && message.status === 'sending';
 
-    // Frozen at mount: true only for messages that were streaming when first added.
-    // Prevents emoji strip from appearing on history or realtime-received messages.
-    const [showEmojiStrip] = useState(isStreaming);
-    // Frozen at mount: typewriter plays for sender's streamed message OR for a fresh
-    // realtime-received assistant message (isNew=true, no emoji strip for these).
-    const [playTypewriter] = useState(isStreaming || (isAssistant && (message.isNew ?? false)));
+        // Frozen at mount: true for locally-streamed messages AND for fresh realtime-received
+        // assistant messages (isNew=true). In the isNew case isStreaming is already false so
+        // EmojiLoopStrip starts its 5-second fade immediately — mirroring the sender's experience.
+        const [showEmojiStrip] = useState(isStreaming || (isAssistant && (message.isNew ?? false)));
+        // Frozen at mount: typewriter plays for sender's streamed message OR for a fresh
+        // realtime-received assistant message (isNew=true).
+        const [playTypewriter] = useState(isStreaming || (isAssistant && (message.isNew ?? false)));
 
-    return (
-        <Animated.View
-            entering={FadeInUp.duration(260).springify()}
-            style={[styles.wrapper, isUser ? styles.wrapperUser : styles.wrapperAssistant]}
-        >
-            {isUser ? (
-                <LinearGradient
-                    colors={gradients.brand}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.bubble, styles.bubbleUser]}
-                >
-                    <Text style={styles.textUser}>{message.text}</Text>
-                </LinearGradient>
-            ) : isPartner ? (
-                <>
-                    {message.senderName !== undefined && (
-                        <Text style={styles.senderLabel}>{message.senderName}</Text>
-                    )}
-                    <View style={[styles.bubble, styles.bubblePartner]}>
-                        <Text style={styles.textPartner}>{message.text}</Text>
-                    </View>
-                </>
-            ) : (
-                <>
-                    {showEmojiStrip && (
-                        <EmojiLoopStrip messageId={message.id} isStreaming={isStreaming} />
-                    )}
-                    {(!isStreaming || !showEmojiStrip) && (
-                        <AssistantBubble
-                            text={message.text}
-                            isStreaming={isStreaming}
-                            playTypewriter={playTypewriter}
+        const userInitial = userName !== null && userName !== undefined && userName.length > 0
+            ? userName
+            : 'Y';
+        const partnerInitial = message.senderName !== undefined && message.senderName.length > 0
+            ? message.senderName
+            : 'P';
+
+        return (
+            <Animated.View
+                entering={FadeInUp.duration(260).springify()}
+                style={[
+                    styles.wrapper,
+                    (isUser || isPartner) ? styles.wrapperUser : styles.wrapperAssistant,
+                ]}
+            >
+                {isUser ? (
+                    <View style={styles.bubbleRow}>
+                        <LinearGradient
+                            colors={gradients.brand}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[styles.bubble, styles.bubbleUser]}
+                        >
+                            <Text style={styles.textUser}>{message.text}</Text>
+                        </LinearGradient>
+                        <AvatarCircle
+                            uri={userAvatar}
+                            initial={userInitial}
+                            bgColor={colors.primary}
                         />
-                    )}
-                </>
-            )}
-        </Animated.View>
-    );
-});
+                    </View>
+                ) : isPartner ? (
+                    <View style={styles.bubbleRowColumn}>
+                        {message.senderName !== undefined && (
+                            <Text style={[styles.senderLabel, styles.senderLabelRight]}>
+                                {message.senderName}
+                            </Text>
+                        )}
+                        <View style={styles.bubbleRow}>
+                            <View style={[styles.bubble, styles.bubblePartner]}>
+                                <Text style={styles.textPartner}>{message.text}</Text>
+                            </View>
+                            <AvatarCircle
+                                uri={partnerAvatar}
+                                initial={partnerInitial}
+                                bgColor={colors.accent}
+                            />
+                        </View>
+                    </View>
+                ) : (
+                    <>
+                        {showEmojiStrip && (
+                            <EmojiLoopStrip messageId={message.id} isStreaming={isStreaming} />
+                        )}
+                        {(!isStreaming || !showEmojiStrip) && (
+                            <AssistantBubble
+                                text={message.text}
+                                isStreaming={isStreaming}
+                                playTypewriter={playTypewriter}
+                            />
+                        )}
+                    </>
+                )}
+            </Animated.View>
+        );
+    },
+);
 
 MessageBubble.displayName = 'MessageBubble';
 
@@ -319,7 +370,7 @@ const styles = StyleSheet.create({
     },
     bubblePartner: {
         backgroundColor: colors.muted,
-        borderBottomLeftRadius: spacing.xs,
+        borderBottomRightRadius: spacing.xs,
     },
     textPartner: {
         fontFamily: fontFamilies.sans,
@@ -328,6 +379,32 @@ const styles = StyleSheet.create({
         color: colors.foreground,
         lineHeight: fontSize.base * 1.5,
     },
+    bubbleRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: spacing.xs,
+    },
+    bubbleRowColumn: {
+        alignItems: 'flex-end',
+    },
+    avatar: {
+        width: 30,
+        height: 30,
+        borderRadius: radii.radiusFull,
+    },
+    avatarFallback: {
+        width: 30,
+        height: 30,
+        borderRadius: radii.radiusFull,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarInitial: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.xs,
+        fontWeight: fontWeight.semibold,
+        color: colors.white,
+    },
     senderLabel: {
         fontFamily: fontFamilies.sans,
         fontSize: fontSize.xs,
@@ -335,6 +412,10 @@ const styles = StyleSheet.create({
         color: colors.gray,
         marginBottom: spacing.xs,
         marginLeft: spacing.xs,
+    },
+    senderLabelRight: {
+        marginLeft: 0,
+        marginRight: spacing.xs + 30 + spacing.xs,
     },
     textUser: {
         fontFamily: fontFamilies.sans,

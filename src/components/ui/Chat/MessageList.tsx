@@ -15,9 +15,13 @@ import { colors, radii, spacing, fontFamilies, fontSize, fontWeight } from '@/th
 interface MessageListProps {
     messages: ChatMessage[];
     isLoading: boolean;
+    userAvatar?: string | null;
+    userName?: string | null;
+    partnerAvatar?: string | null;
 }
 
-export const MessageList: React.FC<MessageListProps> = React.memo(({ messages, isLoading }) => {
+export const MessageList: React.FC<MessageListProps> = React.memo(
+    ({ messages, isLoading, userAvatar, userName, partnerAvatar }) => {
     const listRef = useRef<FlatList<ChatMessage>>(null);
 
     useEffect(() => {
@@ -31,7 +35,9 @@ export const MessageList: React.FC<MessageListProps> = React.memo(({ messages, i
             ref={listRef}
             data={messages}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <MessageBubble message={item} />}
+            renderItem={({ item }) => (
+                <MessageBubble message={item} userAvatar={userAvatar} userName={userName} partnerAvatar={partnerAvatar} />
+            )}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={<EmptyState />}

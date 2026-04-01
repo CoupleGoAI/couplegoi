@@ -37,9 +37,11 @@ export const InputBar: React.FC<InputBarProps> = React.memo(({ onSend, disabled 
             withTiming(1.12, { duration: 200, easing: Easing.out(Easing.cubic) }),
             withSpring(1, { damping: 14, stiffness: 180 }),
         );
+        // Quintic ease-out: high initial angular velocity decelerates like a wheel losing momentum
+        // 720° = 2 full rotations, ends at same visual position as 0° so instant reset is seamless
         rotation.value = withSequence(
-            withTiming(2520, { duration: 1800, easing: Easing.out(Easing.poly(3)) }),
-            withTiming(0, { duration: 1 }),
+            withTiming(720, { duration: 900, easing: Easing.out(Easing.poly(5)) }),
+            withTiming(0, { duration: 0 }),
         );
 
         onSend(trimmed);

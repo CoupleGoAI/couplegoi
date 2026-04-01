@@ -1,12 +1,15 @@
 import { create } from 'zustand';
+import type { InteractivePayload } from '@/types/index';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface CoupleSetupMessage {
     id: string;
-    role: 'user' | 'assistant';
+    role: 'user' | 'assistant' | 'interactive';
     content: string;
     createdAt: number;
+    /** Present only when role === 'interactive' */
+    interactive?: InteractivePayload;
 }
 
 interface CoupleSetupState {

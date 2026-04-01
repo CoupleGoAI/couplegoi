@@ -12,8 +12,10 @@ import { colors, gradients } from '@/theme/tokens';
 export function AiChatScreen(): React.ReactElement {
     const navigation = useNavigation<RootNavProp>();
     const coupleId = useAuthStore((s) => s.user?.coupleId);
+    const userAvatar = useAuthStore((s) => s.user?.avatarUrl ?? null);
+    const userName = useAuthStore((s) => s.user?.name ?? null);
     const [mode, setMode] = useState<ChatMode>('single');
-    const { messages, isHistoryLoading, isStreaming, error, send } = useAiChat(mode);
+    const { messages, isHistoryLoading, isStreaming, error, send, partnerAvatar } = useAiChat(mode);
 
     const handleSend = useCallback(
         (text: string) => {
@@ -40,6 +42,9 @@ export function AiChatScreen(): React.ReactElement {
             isLoading={isStreaming}
             mode={mode}
             isCoupled={coupleId !== null && coupleId !== undefined}
+            userAvatar={userAvatar}
+            userName={userName}
+            partnerAvatar={partnerAvatar}
             onModeChange={setMode}
             onSend={handleSend}
             onBack={handleBack}

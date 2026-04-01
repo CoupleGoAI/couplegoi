@@ -22,6 +22,9 @@ interface ChatContainerProps {
     isLoading: boolean;
     mode: ChatMode;
     isCoupled?: boolean;
+    userAvatar?: string | null;
+    userName?: string | null;
+    partnerAvatar?: string | null;
     onModeChange: (mode: ChatMode) => void;
     onSend: (text: string) => void;
     onBack?: () => void;
@@ -33,6 +36,9 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     isLoading,
     mode,
     isCoupled = false,
+    userAvatar,
+    userName,
+    partnerAvatar,
     onModeChange,
     onSend,
     onBack,
@@ -51,7 +57,13 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             style={styles.body}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <MessageList messages={messages} isLoading={isLoading} />
+            <MessageList
+                    messages={messages}
+                    isLoading={isLoading}
+                    userAvatar={userAvatar}
+                    userName={userName}
+                    partnerAvatar={partnerAvatar}
+                />
             {error !== null && error !== undefined && (
                 <View style={styles.errorBanner}>
                     <Text style={styles.errorText}>{error}</Text>

@@ -74,7 +74,10 @@ function validateName(input: string): { valid: boolean; value: string; hint?: st
 }
 
 function validateBirthDate(input: string): { valid: boolean; value: string; hint?: string } {
-  const parsed = chrono.parseDate(input);
+  const trimmed = input.trim();
+  // Fast path: date picker sends exact ISO date — bypass chrono entirely
+  const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const parsed = ISO_RE.test(trimmed) ? new Date(trimmed + "T12:00:00") : chrono.parseDate(trimmed);
   if (!parsed) {
     return { valid: false, value: "", hint: pick(PROMPTS.reaskBirthDate) };
   }

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCoupleSetupStore } from '@store/coupleSetupStore';
 import { useAuthStore } from '@store/authStore';
 import { sendCoupleSetupMessage } from '@data/coupleSetupApi';
 import * as authData from '@data/auth';
 import { sanitizeMessage } from '@domain/onboarding/validation';
 import type { CoupleSetupMessage } from '@store/coupleSetupStore';
+import type { InteractivePayload } from '@/types/index';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ export interface UseCoupleSetupReturn {
     sendMessage: (text: string) => Promise<void>;
     isInitializing: boolean;
     retryComplete: () => Promise<void>;
+    hasActivePicker: boolean;
+    confirmDatePicker: (isoDate: string) => void;
 }
 
 // ─── ID Helper ────────────────────────────────────────────────────────────────
@@ -34,6 +37,7 @@ function generateMessageId(prefix: string): string {
 
 export function useCoupleSetup(): UseCoupleSetupReturn {
     const [isInitializing, setIsInitializing] = useState(true);
+    const [activePicker, setActivePicker] = useState<InteractivePayload | null>(null);
 
     const messages = useCoupleSetupStore((s) => s.messages);
     const isComplete = useCoupleSetupStore((s) => s.isComplete);
@@ -51,6 +55,21 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
     const userId = useAuthStore((s) => s.user?.id);
 
     const hasInitialized = useRef(false);
+
+    // Derive display messages — append synthetic interactive message when a picker is active
+    const displayMessages = useMemo((): CoupleSetupMessage[] => {
+        if (!activePicker) return messages;
+        return [
+            ...messages,
+            {
+                id: 'interactive-picker',
+                role: 'interactive',
+                content: '',
+                createdAt: Date.now(),
+                interactive: activePicker,
+            },
+        ];
+    }, [messages, activePicker]);
 
     const sendMessage = useCallback(
         async (text: string): Promise<void> => {
@@ -96,6 +115,12 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
             setIsComplete(complete);
             setLoading(false);
 
+            // questionIndex === 0 means the AI just asked for the dating start date — show picker
+            if (questionIndex === 0 && !complete) {
+                const today = new Date().toISOString().split('T')[0];
+                setActivePicker({ type: 'date-picker', maxDate: today });
+            }
+
             // Refresh auth profile so RootNavigator transitions reactively
             if (complete && userId) {
                 const profileResult = await authData.fetchProfile(userId);
@@ -105,6 +130,15 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
             }
         },
         [addMessage, setLoading, setError, setCurrentQuestion, setIsComplete, setUser, userId],
+    );
+
+    /** Called when the date picker emits a confirmed ISO date. */
+    const confirmDatePicker = useCallback(
+        (isoDate: string) => {
+            setActivePicker(null);
+            void sendMessage(isoDate);
+        },
+        [sendMessage],
     );
 
     const retryComplete = useCallback(async (): Promise<void> => {
@@ -132,7 +166,7 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
     }, []);
 
     return {
-        messages,
+        messages: displayMessages,
         isComplete,
         currentQuestion,
         totalQuestions: TOTAL_COUPLE_SETUP_QUESTIONS,
@@ -141,5 +175,7 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
         sendMessage,
         isInitializing,
         retryComplete,
+        hasActivePicker: activePicker !== null,
+        confirmDatePicker,
     };
 }

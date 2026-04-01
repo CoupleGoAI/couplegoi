@@ -25,6 +25,7 @@ import GradientButton from '@components/ui/GradientButton';
 import { ChatBubble } from '@components/chat/ChatBubble';
 import { TypingIndicator } from '@components/chat/TypingIndicator';
 import { HelpTypeChips } from '@components/chat/HelpTypeChips';
+import { InteractiveMessageBubble } from '@components/chat/interactive/InteractiveMessageBubble';
 import { useCoupleSetup } from '@hooks/useCoupleSetup';
 import {
     colors,
@@ -78,6 +79,8 @@ export function CoupleSetupScreen(_props: CoupleSetupScreenProps): React.ReactEl
         sendMessage,
         isInitializing,
         retryComplete,
+        hasActivePicker,
+        confirmDatePicker,
     } = useCoupleSetup();
 
     const [inputText, setInputText] = useState('');
@@ -153,8 +156,19 @@ export function CoupleSetupScreen(_props: CoupleSetupScreenProps): React.ReactEl
     );
 
     const renderMessage = useCallback(
-        ({ item }: ListRenderItemInfo<CoupleSetupMessage>) => <ChatBubble message={item} />,
-        [],
+        ({ item }: ListRenderItemInfo<CoupleSetupMessage>) => {
+            if (item.role === 'interactive' && item.interactive !== undefined) {
+                return (
+                    <InteractiveMessageBubble
+                        payload={item.interactive}
+                        onConfirm={confirmDatePicker}
+                    />
+                );
+            }
+            // role is narrowed to 'user' | 'assistant' here; ChatBubble expects exactly that
+            return <ChatBubble message={{ id: item.id, role: item.role as 'user' | 'assistant', content: item.content, createdAt: item.createdAt }} />;
+        },
+        [confirmDatePicker],
     );
 
     const keyExtractor = useCallback((item: CoupleSetupMessage) => item.id, []);
@@ -303,7 +317,7 @@ export function CoupleSetupScreen(_props: CoupleSetupScreenProps): React.ReactEl
                             <TextInput
                                 value={inputText}
                                 onChangeText={setInputText}
-                                placeholder="Type your answer…"
+                                placeholder={hasActivePicker ? 'Choose a date above ↑' : 'Type your answer…'}
                                 placeholderTextColor={colors.gray}
                                 className="flex-1 bg-white rounded-md border-borderDefault px-lg py-md text-base text-foreground"
                                 style={styles.input}
@@ -312,7 +326,7 @@ export function CoupleSetupScreen(_props: CoupleSetupScreenProps): React.ReactEl
                                 returnKeyType="send"
                                 onSubmitEditing={handleSend}
                                 blurOnSubmit
-                                editable={!isLoading && !showTyping}
+                                editable={!isLoading && !showTyping && !hasActivePicker}
                             />
                             <Animated.View style={sendAnimatedStyle}>
                                 <TouchableOpacity

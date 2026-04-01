@@ -77,3 +77,12 @@ export type ChatResult =
 export type ChatHistoryResult =
     | { ok: true; data: ChatMessage[] }
     | { ok: false; error: string };
+
+// ─── Interactive Message Payloads ─────────────────────────────────────────────
+
+/**
+ * Discriminated union for interactive chat messages.
+ * Add new types here to extend the interactive message system.
+ */
+export type InteractivePayload =
+    | { type: 'date-picker'; minDate?: string; maxDate?: string };

@@ -7,6 +7,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 export interface PartnerInfo {
     id: string;
     name: string | null;
+    avatarUrl: string | null;
 }
 
 interface CoupleRow {
@@ -43,12 +44,14 @@ export async function fetchPartnerInfo(
 
     const { data: profile } = await supabase
         .from('profiles')
-        .select('name')
+        .select('name, avatar_url')
         .eq('id', partnerId)
         .maybeSingle();
 
-    const name = (profile as { name: string | null } | null)?.name ?? null;
-    return { ok: true, data: { id: partnerId, name } };
+    const typedProfile = profile as { name: string | null; avatar_url: string | null } | null;
+    const name = typedProfile?.name ?? null;
+    const avatarUrl = typedProfile?.avatar_url ?? null;
+    return { ok: true, data: { id: partnerId, name, avatarUrl } };
 }
 
 // ─── Chat History ────────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ export interface UseAiChatReturn {
     error: string | null;
     send: (text: string) => Promise<void>;
     clearError: () => void;
+    partnerAvatar: string | null;
 }
 
 export function useAiChat(mode: ChatMode): UseAiChatReturn {
@@ -147,5 +148,5 @@ export function useAiChat(mode: ChatMode): UseAiChatReturn {
 
     const clearError = useCallback(() => setError(null), []);
 
-    return { messages, isHistoryLoading, isStreaming, error, send, clearError };
+    return { messages, isHistoryLoading, isStreaming, error, send, clearError, partnerAvatar: partnerInfo?.avatarUrl ?? null };
 }
