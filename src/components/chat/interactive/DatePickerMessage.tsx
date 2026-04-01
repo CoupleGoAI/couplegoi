@@ -8,6 +8,7 @@ import Animated, {
     runOnJS,
     cancelAnimation,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import GradientButton from '@components/ui/GradientButton';
 import {
     colors,
@@ -46,6 +47,22 @@ function isoFromParts(year: number, month: number, day: number): string {
     return `${y}-${m}-${d}`;
 }
 
+// ─── Haptics ──────────────────────────────────────────────────────────────────
+
+// Called from the UI thread via runOnJS. Velocity (px/s) drives the style so
+// fast flicks feel heavier — mimicking the iPhone native picker behaviour.
+function hapticTick(absVelocity: number): void {
+    if (absVelocity > 2000) {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    } else if (absVelocity > 700) {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } else if (absVelocity > 150) {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else {
+        void Haptics.selectionAsync();
+    }
+}
+
 // ─── Single Column ────────────────────────────────────────────────────────────
 // Uses GestureDetector so the pan gesture is handled in RNGH's native system,
 // preventing the outer FlatList (chat) from stealing the vertical scroll.
@@ -61,6 +78,8 @@ const PickerColumn: React.FC<ColumnProps> = React.memo(({ data, selectedIndex, o
     // translateY = -i * ITEM_HEIGHT → item i centred
     const translateY = useSharedValue(-selectedIndex * ITEM_HEIGHT);
     const startY = useSharedValue(0);
+    // Tracks which item last triggered a haptic so we fire once per item tick
+    const lastHapticIndex = useSharedValue(selectedIndex);
 
     // Sync position when selectedIndex is changed externally (e.g. day clamp on month change)
     useEffect(() => {
@@ -79,10 +98,18 @@ const PickerColumn: React.FC<ColumnProps> = React.memo(({ data, selectedIndex, o
         .onBegin(() => {
             cancelAnimation(translateY);
             startY.value = translateY.value;
+            lastHapticIndex.value = Math.max(0, Math.min(data.length - 1, Math.round(-translateY.value / ITEM_HEIGHT)));
         })
         .onUpdate((e) => {
             const clamped = Math.max(minT, Math.min(maxT, startY.value + e.translationY));
             translateY.value = clamped;
+
+            // Fire one haptic each time the centred item changes
+            const current = Math.max(0, Math.min(data.length - 1, Math.round(-clamped / ITEM_HEIGHT)));
+            if (current !== lastHapticIndex.value) {
+                lastHapticIndex.value = current;
+                runOnJS(hapticTick)(Math.abs(e.velocityY));
+            }
         })
         .onEnd((e) => {
             // Project forward using velocity to pick the landing item naturally
