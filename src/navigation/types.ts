@@ -30,6 +30,9 @@ export type RootStackParamList = {
     AiChat: undefined;
     Profile: undefined;
     DisconnectConfirm: undefined;
+    GameWouldYouRather: undefined;
+    GameThisOrThat: undefined;
+    GameLoveCheckIn: undefined;
 };
 
 // Navigation prop helpers
@@ -71,3 +74,9 @@ export type DisconnectConfirmScreenProps = NativeStackScreenProps<RootStackParam
 // Tab screen props
 export type GamesScreenProps = BottomTabScreenProps<MainTabParamList, 'Play'>;
 export type ActivitiesScreenProps = BottomTabScreenProps<MainTabParamList, 'Moments'>;
+
+// Composite nav prop for the Play tab (needs root stack for game screens)
+export type PlayScreenNavProp = CompositeNavigationProp<
+    BottomTabNavigationProp<MainTabParamList, 'Play'>,
+    NativeStackNavigationProp<RootStackParamList>
+>;

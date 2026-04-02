@@ -16,6 +16,9 @@ import MainTabNavigator from '@navigation/MainTabNavigator';
 import { AiChatScreen } from '@screens/main/AiChatScreen';
 import ProfileScreen from '@screens/main/ProfileScreen';
 import DisconnectConfirmScreen from '@screens/main/DisconnectConfirmScreen';
+import { WouldYouRatherScreen } from '@screens/main/games/WouldYouRatherScreen';
+import { ThisOrThatScreen } from '@screens/main/games/ThisOrThatScreen';
+import { LoveCheckInScreen } from '@screens/main/games/LoveCheckInScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -95,6 +98,21 @@ export default function RootNavigator() {
                             name="DisconnectConfirm"
                             component={DisconnectConfirmScreen}
                             options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+                        />
+                        <Stack.Screen
+                            name="GameWouldYouRather"
+                            component={WouldYouRatherScreen}
+                            options={{ animation: 'slide_from_right' }}
+                        />
+                        <Stack.Screen
+                            name="GameThisOrThat"
+                            component={ThisOrThatScreen}
+                            options={{ animation: 'slide_from_right' }}
+                        />
+                        <Stack.Screen
+                            name="GameLoveCheckIn"
+                            component={LoveCheckInScreen}
+                            options={{ animation: 'slide_from_right' }}
                         />
                     </>
                 )}
