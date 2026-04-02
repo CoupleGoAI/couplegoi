@@ -191,7 +191,7 @@ export const DatePickerMessage: React.FC<DatePickerMessageProps> = ({
 
     return (
         <View style={styles.card}>
-            <Text style={styles.label}>Select a date</Text>
+            <Text style={styles.label}>When did you start dating?</Text>
             <View style={styles.columnsRow}>
                 <PickerColumn data={MONTHS} selectedIndex={monthIdx} onSelect={setMonthIdx} />
                 <View style={styles.columnDivider} />

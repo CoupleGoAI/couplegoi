@@ -15,9 +15,10 @@ import { colors, gradients, radii, spacing, shadows, fontFamilies, fontSize } fr
 interface InputBarProps {
     onSend: (text: string) => void;
     disabled: boolean;
+    placeholder?: string;
 }
 
-export const InputBar: React.FC<InputBarProps> = React.memo(({ onSend, disabled }) => {
+export const InputBar: React.FC<InputBarProps> = React.memo(({ onSend, disabled, placeholder }) => {
     const [text, setText] = useState('');
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
@@ -56,7 +57,7 @@ export const InputBar: React.FC<InputBarProps> = React.memo(({ onSend, disabled 
                 style={styles.input}
                 value={text}
                 onChangeText={setText}
-                placeholder="Say something..."
+                placeholder={placeholder ?? 'Say something...'}
                 placeholderTextColor={colors.gray}
                 selectionColor={colors.primary}
                 multiline

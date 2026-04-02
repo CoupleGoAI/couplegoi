@@ -29,6 +29,18 @@ interface ChatContainerProps {
     onSend: (text: string) => void;
     onBack?: () => void;
     error?: string | null;
+    /** When set, replaces "AI Companion" with a custom title and hides the mode toggle. */
+    title?: string;
+    /** Emoji shown before the custom title. */
+    titleEmoji?: string;
+    /** Rendered between the message list and the input bar (e.g. quick-reply chips, date picker). */
+    footerSlot?: React.ReactElement | null;
+    /** Placeholder text forwarded to the input bar. */
+    inputPlaceholder?: string;
+    /** Disables the input bar independently of isLoading (e.g. when a picker is active). */
+    inputDisabled?: boolean;
+    /** Hides the input bar entirely (e.g. when quick-reply chips are the only input). */
+    hideInput?: boolean;
 }
 
 export const ChatContainer: React.FC<ChatContainerProps> = ({
@@ -43,6 +55,12 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     onSend,
     onBack,
     error,
+    title,
+    titleEmoji,
+    footerSlot,
+    inputPlaceholder,
+    inputDisabled,
+    hideInput = false,
 }) => (
     <SafeAreaView style={styles.safe} edges={['top']}>
         <LinearGradient
@@ -51,25 +69,34 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
         />
-        <Header onBack={onBack} />
-        <ModeToggle mode={mode} isCoupled={isCoupled} onModeChange={onModeChange} />
+        <Header onBack={onBack} title={title} titleEmoji={titleEmoji} />
+        {title === undefined && (
+            <ModeToggle mode={mode} isCoupled={isCoupled} onModeChange={onModeChange} />
+        )}
         <KeyboardAvoidingView
             style={styles.body}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <MessageList
-                    messages={messages}
-                    isLoading={isLoading}
-                    userAvatar={userAvatar}
-                    userName={userName}
-                    partnerAvatar={partnerAvatar}
-                />
+                messages={messages}
+                isLoading={isLoading}
+                userAvatar={userAvatar}
+                userName={userName}
+                partnerAvatar={partnerAvatar}
+            />
             {error !== null && error !== undefined && (
                 <View style={styles.errorBanner}>
                     <Text style={styles.errorText}>{error}</Text>
                 </View>
             )}
-            <InputBar onSend={onSend} disabled={isLoading} />
+            {footerSlot !== undefined && footerSlot !== null && footerSlot}
+            {!hideInput && (
+                <InputBar
+                    onSend={onSend}
+                    disabled={isLoading || (inputDisabled ?? false)}
+                    placeholder={inputPlaceholder}
+                />
+            )}
         </KeyboardAvoidingView>
     </SafeAreaView>
 );
@@ -78,9 +105,11 @@ ChatContainer.displayName = 'ChatContainer';
 
 interface HeaderProps {
     onBack?: () => void;
+    title?: string;
+    titleEmoji?: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ onBack }) => (
+const Header: React.FC<HeaderProps> = ({ onBack, title, titleEmoji }) => (
     <View style={styles.header}>
         {onBack !== undefined ? (
             <TouchableOpacity
@@ -93,7 +122,10 @@ const Header: React.FC<HeaderProps> = ({ onBack }) => (
         ) : (
             <View style={styles.backButton} />
         )}
-        <Text style={styles.headerTitle}>AI Companion</Text>
+        <View style={styles.headerTitleRow}>
+            {titleEmoji !== undefined && <Text style={styles.headerEmoji}>{titleEmoji}</Text>}
+            <Text style={styles.headerTitle}>{title ?? 'AI Companion'}</Text>
+        </View>
         <View style={styles.backButton} />
     </View>
 );
@@ -176,6 +208,14 @@ const styles = StyleSheet.create({
         width: 40,
         alignItems: 'flex-start',
         justifyContent: 'center',
+    },
+    headerTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+    },
+    headerEmoji: {
+        fontSize: fontSize.xl,
     },
     headerTitle: {
         fontFamily: fontFamilies.sans,

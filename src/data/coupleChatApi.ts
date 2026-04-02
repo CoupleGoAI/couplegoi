@@ -212,3 +212,34 @@ export function subscribeToCoupleCompletion(
 
     return channel;
 }
+
+/**
+ * Fires when step 0 completes on either partner's device:
+ * dating_start_date transitions from null → set (help_focus still null).
+ * Used to clear the date picker on the partner who didn't submit.
+ */
+export function subscribeToCoupleDatingStart(
+    coupleId: string,
+    onDatingStartSet: () => void,
+): RealtimeChannel {
+    const channel = supabase
+        .channel('couple_dating_start_' + coupleId)
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'couples',
+                filter: `id=eq.${coupleId}`,
+            },
+            (payload) => {
+                const row = payload.new as CoupleCompletionPayload;
+                if (row.dating_start_date && !row.help_focus) {
+                    onDatingStartSet();
+                }
+            },
+        )
+        .subscribe();
+
+    return channel;
+}

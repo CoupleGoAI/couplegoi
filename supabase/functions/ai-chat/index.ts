@@ -157,18 +157,6 @@ async function buildCoupleSystemPrompt(
   });
 }
 
-// ─── Prompt Logging (local dev only) ─────────────────────────────────────────
-
-async function logPrompt(systemPrompt: string, mode: "solo" | "couple"): Promise<void> {
-  try {
-    const separator = "─".repeat(60);
-    const entry = `\n${separator}\n[${new Date().toISOString()}] mode=${mode}\n\n${systemPrompt}\n`;
-    await Deno.writeTextFile("./prompt.log", entry, { append: true });
-  } catch {
-    // Silent in production — only works during local dev (supabase functions serve)
-  }
-}
-
 // ─── Content Validation ──────────────────────────────────────────────────────
 
 const MAX_CONTENT_LENGTH = 2000;
@@ -239,6 +227,16 @@ Deno.serve(async (req) => {
   // Service role client — only after auth verification
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+  // Rate limiting: 20 requests per minute per user
+  const { data: withinLimit, error: rateLimitError } = await supabase.rpc("check_rate_limit", {
+    p_user_id: userId,
+    p_endpoint: "ai-chat",
+    p_max_per_minute: 20,
+  });
+  if (rateLimitError || !withinLimit) {
+    return json({ error: "Too many requests. Please wait a moment." }, 429);
+  }
+
   // Fetch profile and history in parallel
   const [profileResult, historyResult] = await Promise.all([
     supabase
@@ -271,7 +269,6 @@ Deno.serve(async (req) => {
   const isCouple = requestMode === "couple" && !!profile?.couple_id;
   let conversationType: "chat" | "couple_chat" = "chat";
   let llmMessages: LLMMessage[] = [];
-  let systemPromptForLog = "";
 
   if (isCouple) {
     const coupleId = profile!.couple_id!;
@@ -303,7 +300,6 @@ Deno.serve(async (req) => {
       const partnerName = partnerProfile?.name ?? "Partner 2";
       const focus = profile?.help_focus ?? partnerProfile?.help_focus ?? null;
       const couplePrompt = await buildCoupleSystemPrompt(supabaseUrl, supabaseServiceKey, myName, partnerName, profile?.dating_start_date ?? null, focus);
-      systemPromptForLog = couplePrompt;
 
       const coupleHistory = (coupleHistResult.data ?? []) as Array<{ role: string; content: string; user_id: string }>;
 
@@ -328,7 +324,6 @@ Deno.serve(async (req) => {
       datingStartDate: profile?.dating_start_date ?? null,
       helpFocus: profile?.help_focus ?? null,
     });
-    systemPromptForLog = soloPrompt;
 
     llmMessages = [
       { role: "system", content: soloPrompt },
@@ -339,10 +334,6 @@ Deno.serve(async (req) => {
       { role: "user", content },
     ];
   }
-
-  // Log prompt for local development inspection
-  const logMode = isCouple ? "couple" : "solo";
-  void logPrompt(systemPromptForLog, logMode);
 
   // Save user message
   await supabase.from("messages").insert({
