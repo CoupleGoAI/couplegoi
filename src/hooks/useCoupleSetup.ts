@@ -67,6 +67,7 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
     const authCoupleSetupCompleted = useAuthStore((s) => s.user?.coupleSetupCompleted ?? false);
 
     const hasInitialized = useRef(false);
+    const sendMessageRef = useRef<((text: string) => Promise<void>) | undefined>(undefined);
 
     // Fetch partner info once coupled
     useEffect(() => {
@@ -88,10 +89,10 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
             (msg) => {
                 const incoming: CoupleSetupMessage = {
                     id: msg.id,
-                    role: msg.role === 'assistant' ? 'assistant' : 'partner',
+                    role: 'partner',
                     content: msg.content,
                     createdAt: msg.createdAt,
-                    senderName: msg.role === 'user' ? msg.senderName : null,
+                    senderName: msg.senderName,
                 };
                 addMessage(incoming);
             },
@@ -111,15 +112,22 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
     }, [coupleId, userId, setUser]);
 
     // Clear the date picker when dating_start_date is set on the couple row
-    // (handles the case where the other partner submitted the date first)
+    // (handles the case where the other partner submitted the date first).
+    // Send a resumption message so the edge function returns the help-focus prompt.
     useEffect(() => {
         if (!coupleId) return;
-        const channel = subscribeToCoupleDatingStart(coupleId, () => {
+        const channel = subscribeToCoupleDatingStart(coupleId, (state) => {
             setActivePicker(null);
-            setCurrentQuestion(1);
+            if (state.helpFocus) {
+                setCurrentQuestion(2);
+                setIsComplete(true);
+            } else {
+                // Partner set the date — resume flow to get the help focus prompt
+                void sendMessageRef.current?.('');
+            }
         });
         return () => { void supabase.removeChannel(channel); };
-    }, [coupleId, setCurrentQuestion]);
+    }, [coupleId, setCurrentQuestion, setIsComplete]);
 
     // Derive display messages — append synthetic interactive message when a picker is active
     const displayMessages = useMemo((): CoupleSetupMessage[] => {
@@ -183,7 +191,11 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
             // questionIndex === 0 means the AI just asked for the dating start date — show picker
             if (questionIndex === 0 && !complete) {
                 const today = new Date().toISOString().split('T')[0];
-                setActivePicker({ type: 'date-picker', maxDate: today, title: 'When did you start dating?' });
+                setActivePicker({
+                    type: 'date-picker',
+                    maxDate: today,
+                    title: 'Please choose the date when you started dating.',
+                });
             }
 
             // Refresh auth profile so RootNavigator transitions reactively
@@ -196,6 +208,9 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
         },
         [addMessage, setLoading, setError, setCurrentQuestion, setIsComplete, setUser, userId],
     );
+
+    // Keep ref in sync so realtime callbacks can call sendMessage without stale closure
+    sendMessageRef.current = sendMessage;
 
     /** Called when the date picker emits a confirmed ISO date. */
     const confirmDatePicker = useCallback(

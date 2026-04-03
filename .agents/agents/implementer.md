@@ -46,9 +46,15 @@ Use `TodoWrite` to track implementation tasks as you go. Mark each done immediat
 - Verify JWT via Auth REST API:
   ```typescript
   const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/user`, {
-    headers: { Authorization: authHeader, apikey: Deno.env.get("SUPABASE_ANON_KEY")! },
+    headers: {
+      Authorization: authHeader,
+      apikey: Deno.env.get("SUPABASE_ANON_KEY")!,
+    },
   });
-  if (!res.ok) return new Response(JSON.stringify({ error: "Auth failed" }), { status: 401 });
+  if (!res.ok)
+    return new Response(JSON.stringify({ error: "Auth failed" }), {
+      status: 401,
+    });
   const user = await res.json();
   ```
 - Use service role client for multi-table atomic writes. User-scoped client for RLS-enforced reads.
@@ -112,12 +118,3 @@ Run existing tests to confirm nothing is broken:
 ```bash
 npx jest --passWithNoTests
 ```
-
-Then write `docs/features/<feature>/implementation-notes.md`:
-
-Do not write documentation files. Instead, return:
-
-1. What you changed
-2. Files changed
-3. Validation run
-4. Risks or follow-ups for the parent agent

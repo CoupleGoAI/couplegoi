@@ -19,6 +19,8 @@ yarn-error.*
 # Local env
 .env
 .env.local
+.env.dev
+.env.prod
 .env.development.local
 .env.test.local
 .env.production.local

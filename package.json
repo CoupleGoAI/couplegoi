@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "env:dev": "cp .env.dev .env.local",
+    "env:prod": "cp .env.prod .env.local",
     "start": "expo start",
+    "start:dev": "cp .env.dev .env.local && expo start",
+    "start:prod": "cp .env.prod .env.local && expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",

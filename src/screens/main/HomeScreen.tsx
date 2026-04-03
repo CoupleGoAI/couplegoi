@@ -45,8 +45,8 @@ interface QuickLink {
 const QUICK_LINKS: readonly QuickLink[] = [
     { label: 'Chat',    icon: 'chatbubble-ellipses-outline', color: colors.primary },
     { label: 'Games',   icon: 'game-controller-outline',     color: colors.accent },
-    { label: 'Quiz',    icon: 'help-circle-outline',         color: colors.accent },
-    { label: 'Moments', icon: 'image-outline',               color: colors.primary },
+    { label: 'Us',      icon: 'people-outline',              color: colors.accent },
+    { label: 'Profile', icon: 'person-outline',              color: colors.primary },
 ];
 
 interface AvatarCircleProps {
@@ -108,8 +108,8 @@ export function HomeScreen(): React.ReactElement {
         switch (label) {
             case 'Chat':    navigation.navigate('AiChat'); break;
             case 'Games':   navigation.navigate('Play'); break;
-            case 'Quiz':    navigation.navigate('Us'); break;
-            case 'Moments': navigation.navigate('Moments'); break;
+            case 'Us':      navigation.navigate('Us'); break;
+            case 'Profile': navigation.navigate('Profile'); break;
         }
     }
 

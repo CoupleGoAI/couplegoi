@@ -14,8 +14,8 @@ export type MainTabParamList = {
     Play: undefined;
     /** Dummy route — center button navigates to AiChat in root stack */
     ChatTab: undefined;
-    Moments: undefined;
     Us: undefined;
+    Profile: undefined;
 };
 
 // --- Root Stack ---
@@ -73,7 +73,6 @@ export type DisconnectConfirmScreenProps = NativeStackScreenProps<RootStackParam
 
 // Tab screen props
 export type GamesScreenProps = BottomTabScreenProps<MainTabParamList, 'Play'>;
-export type ActivitiesScreenProps = BottomTabScreenProps<MainTabParamList, 'Moments'>;
 
 // Composite nav prop for the Play tab (needs root stack for game screens)
 export type PlayScreenNavProp = CompositeNavigationProp<

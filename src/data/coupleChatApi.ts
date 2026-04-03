@@ -140,7 +140,7 @@ export function subscribeToCoupleChatMessages(
 
 export interface CoupleSetupIncomingMessage {
     id: string;
-    role: 'user' | 'assistant';
+    role: 'user';
     content: string;
     createdAt: number;
     senderName: string | null;
@@ -165,11 +165,13 @@ export function subscribeToPartnerCoupleSetupMessages(
             (payload) => {
                 const row = payload.new as RealtimeMessagePayload;
                 if (row.conversation_type !== 'couple_setup') return;
-                if (row.role !== 'user' && row.role !== 'assistant') return;
+                // Only mirror the partner's user messages.
+                // Assistant messages are generated per user and would appear duplicated otherwise.
+                if (row.role !== 'user') return;
 
                 onInsert({
                     id: row.id,
-                    role: row.role as 'user' | 'assistant',
+                    role: 'user',
                     content: row.content,
                     createdAt: new Date(row.created_at).getTime(),
                     senderName: row.role === 'user' ? (partnerName ?? 'Partner') : null,
@@ -220,7 +222,7 @@ export function subscribeToCoupleCompletion(
  */
 export function subscribeToCoupleDatingStart(
     coupleId: string,
-    onDatingStartSet: () => void,
+    onDatingStartSet: (state: { datingStartDate: string; helpFocus: string | null }) => void,
 ): RealtimeChannel {
     const channel = supabase
         .channel('couple_dating_start_' + coupleId)
@@ -234,8 +236,11 @@ export function subscribeToCoupleDatingStart(
             },
             (payload) => {
                 const row = payload.new as CoupleCompletionPayload;
-                if (row.dating_start_date && !row.help_focus) {
-                    onDatingStartSet();
+                if (row.dating_start_date) {
+                    onDatingStartSet({
+                        datingStartDate: row.dating_start_date,
+                        helpFocus: row.help_focus,
+                    });
                 }
             },
         )

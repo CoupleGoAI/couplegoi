@@ -5,8 +5,8 @@ import type { MainTabParamList, RootNavProp } from '@navigation/types';
 import { TabBar } from '@components/ui/TabBar';
 import { HomeScreen } from '@screens/main/HomeScreen';
 import { GamesScreen } from '@screens/main/GamesScreen';
-import { ActivitiesScreen } from '@screens/main/ActivitiesScreen';
 import { UsScreen } from '@screens/main/UsScreen';
+import ProfileScreen from '@screens/main/ProfileScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -31,8 +31,8 @@ export default function MainTabNavigator(): React.ReactElement {
             <Tab.Screen name="Nest" component={HomeScreen} />
             <Tab.Screen name="Play" component={GamesScreen} />
             <Tab.Screen name="ChatTab" component={ChatTabScreen} />
-            <Tab.Screen name="Moments" component={ActivitiesScreen} />
             <Tab.Screen name="Us" component={UsScreen} />
+            <Tab.Screen name="Profile" component={ProfileScreen} />
         </Tab.Navigator>
     );
 }

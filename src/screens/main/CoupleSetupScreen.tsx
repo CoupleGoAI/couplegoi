@@ -110,7 +110,7 @@ export function CoupleSetupScreen(_props: CoupleSetupScreenProps): React.ReactEl
         if (activePicker !== null) {
             return (
                 <InteractiveMessageBubble 
-                    payload={{ ...activePicker, title: 'When did you start dating?' }} 
+                    payload={{ ...activePicker, title: 'Please choose the date when you started dating.' }} 
                     onConfirm={confirmDatePicker} 
                 />
             );

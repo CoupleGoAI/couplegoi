@@ -4,7 +4,6 @@
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as chrono from "https://esm.sh/chrono-node@2";
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 
@@ -59,9 +58,9 @@ const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
 const PROMPTS = {
     greet: [
-        "Congrats on connecting! 💑 Let's set things up. Please choose the date when you started dating below.",
-        "You two are official! 🥰 When did your love story begin? Pick the date below.",
-        "Amazing, you're paired up! 💕 Please choose the date you started dating below.",
+        "Congrats on connecting! 💑 Pick your dating start date below.",
+        "You two are official! 🥰 Choose the date you started dating.",
+        "Amazing, you're paired up! 💕 Select your dating start date.",
     ],
     askHelpType: [
         "Love it! 🌟 What area would you like help with? Pick one:\n\n• Communication\n• Conflict\n• Trust\n• Emotional connection\n• Intimacy\n• Other",
@@ -74,8 +73,8 @@ const PROMPTS = {
         "That's everything! 💖 You and your partner are ready to grow together.",
     ],
     reaskDatingStart: [
-        "Couldn't parse that date. Try something like: June 2022 or 2022-06-15 📅",
-        "Hmm, that doesn't look right. Try again — like June 15, 2022 or 2022-06-15",
+        "Hmm, that date didn't work. Please use the date picker to choose when you started dating.",
+        "Something went wrong with that date. Try picking it again from the picker below.",
     ],
     reaskHelpType: [
         "Please pick one of: communication, conflict, trust, emotional_connection, intimacy, or other 🎯",
@@ -87,32 +86,30 @@ const PROMPTS = {
 
 function validateDatingStartDate(
     input: string,
-    birthDate: string,
 ): { valid: boolean; value: string; hint?: string } {
     const trimmed = input.trim();
-    // Fast path: date picker sends exact ISO date — bypass chrono entirely
     const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
-    const parsed = ISO_RE.test(trimmed) ? new Date(trimmed + "T12:00:00") : chrono.parseDate(trimmed);
-
-    if (!parsed) {
+    if (!ISO_RE.test(trimmed)) {
         return { valid: false, value: "", hint: pick(PROMPTS.reaskDatingStart) };
     }
 
-    const now = new Date();
-    if (parsed > now) {
+    const parsed = new Date(trimmed + "T12:00:00Z");
+
+    if (Number.isNaN(parsed.getTime())) {
         return { valid: false, value: "", hint: pick(PROMPTS.reaskDatingStart) };
     }
 
-    const birth = new Date(birthDate);
-    if (parsed <= birth) {
+    if (parsed.getFullYear() < 1900) {
         return { valid: false, value: "", hint: pick(PROMPTS.reaskDatingStart) };
     }
 
-    const yyyy = parsed.getFullYear().toString().padStart(4, "0");
-    const mm = (parsed.getMonth() + 1).toString().padStart(2, "0");
-    const dd = parsed.getDate().toString().padStart(2, "0");
+    // Allow today — compare date-only (ignore time)
+    const nowDate = new Date().toISOString().split("T")[0];
+    if (trimmed > nowDate) {
+        return { valid: false, value: "", hint: pick(PROMPTS.reaskDatingStart) };
+    }
 
-    return { valid: true, value: `${yyyy}-${mm}-${dd}` };
+    return { valid: true, value: trimmed };
 }
 
 function validateHelpFocus(input: string): { valid: boolean; value: string; hint?: string } {
@@ -243,10 +240,6 @@ Deno.serve(async (req) => {
 
         const typedProfile = profile as ProfileRow;
 
-        if (!typedProfile.birth_date) {
-            return errorResponse("Onboarding profile not complete", 400);
-        }
-
         if (!typedProfile.couple_id) {
             return errorResponse("Not paired with a partner yet", 400);
         }
@@ -329,7 +322,7 @@ Deno.serve(async (req) => {
         const currentStep = deriveStep(couple);
 
         if (currentStep === 0) {
-            const result = validateDatingStartDate(message, typedProfile.birth_date);
+            const result = validateDatingStartDate(message);
 
             if (!result.valid) {
                 const { error: insertError } = await insertMessages(supabase, userId, [

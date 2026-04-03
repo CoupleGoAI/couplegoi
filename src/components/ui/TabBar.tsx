@@ -20,8 +20,8 @@ interface TabConfig {
 const TAB_CONFIG: readonly TabConfig[] = [
     { route: 'Nest',    icon: 'home-outline',            activeIcon: 'home',            color: colors.primary },
     { route: 'Play',    icon: 'game-controller-outline',  activeIcon: 'game-controller',  color: colors.accent },
-    { route: 'Moments', icon: 'people-outline',           activeIcon: 'people',           color: colors.accent },
-    { route: 'Us',      icon: 'heart-outline',            activeIcon: 'heart',            color: colors.primary },
+    { route: 'Us',      icon: 'people-outline',           activeIcon: 'people',           color: colors.accent },
+    { route: 'Profile', icon: 'person-outline',           activeIcon: 'person',           color: colors.primary },
 ];
 
 interface TabIconButtonProps {
@@ -67,7 +67,7 @@ export const TabBar: React.FC<TabBarProps> = ({ state, navigation, onChatPress }
     const activeRoute = state.routes[state.index].name;
 
     const leftRoutes = state.routes.filter((r) => r.name === 'Nest' || r.name === 'Play');
-    const rightRoutes = state.routes.filter((r) => r.name === 'Moments' || r.name === 'Us');
+    const rightRoutes = state.routes.filter((r) => r.name === 'Us' || r.name === 'Profile');
 
     return (
         <View style={{ height: containerHeight }}>
