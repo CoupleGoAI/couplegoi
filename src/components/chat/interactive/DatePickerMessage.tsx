@@ -167,9 +167,11 @@ export const DatePickerMessage: React.FC<DatePickerMessageProps> = ({
     maxDate,
     onConfirm,
 }) => {
-    const initial = parseIsoOrToday(maxDate);
-    const maxYear = initial.getFullYear();
-    const minYear = minDate ? parseIsoOrToday(minDate).getFullYear() : 1900;
+    const maxBound = parseIsoOrToday(maxDate);
+    const minBound = minDate ? parseIsoOrToday(minDate) : new Date(1900, 0, 1);
+    const initial = maxBound;
+    const maxYear = maxBound.getFullYear();
+    const minYear = minBound.getFullYear();
 
     const YEARS = Array.from(
         { length: maxYear - minYear + 1 },
@@ -181,23 +183,57 @@ export const DatePickerMessage: React.FC<DatePickerMessageProps> = ({
     const [yearIdx, setYearIdx] = useState(0); // index 0 = maxYear
 
     const currentYear = maxYear - yearIdx;
-    const maxDays = daysInMonth(monthIdx, currentYear);
-    const clampedDayIdx = Math.min(dayIdx, maxDays - 1);
-    const DAYS = Array.from({ length: maxDays }, (_, i) =>
-        String(i + 1).padStart(2, '0'),
+    const monthMinIdx = currentYear === minYear ? minBound.getMonth() : 0;
+    const monthMaxIdx = currentYear === maxYear ? maxBound.getMonth() : 11;
+    const clampedMonthIdx = Math.max(monthMinIdx, Math.min(monthIdx, monthMaxIdx));
+
+    const maxDaysInMonth = daysInMonth(clampedMonthIdx, currentYear);
+    const dayMin = currentYear === minYear && clampedMonthIdx === minBound.getMonth()
+        ? minBound.getDate()
+        : 1;
+    const dayMax = currentYear === maxYear && clampedMonthIdx === maxBound.getMonth()
+        ? maxBound.getDate()
+        : maxDaysInMonth;
+    const clampedDayIdx = Math.max(dayMin - 1, Math.min(dayIdx, dayMax - 1));
+
+    const allowedMonths = MONTHS.slice(monthMinIdx, monthMaxIdx + 1);
+    const DAYS = Array.from({ length: dayMax - dayMin + 1 }, (_, i) =>
+        String(dayMin + i).padStart(2, '0'),
     );
 
+    useEffect(() => {
+        if (monthIdx !== clampedMonthIdx) {
+            setMonthIdx(clampedMonthIdx);
+        }
+        // We intentionally compare against the calculated bounds and sync if out of range.
+    }, [monthIdx, clampedMonthIdx]);
+
+    useEffect(() => {
+        if (dayIdx !== clampedDayIdx) {
+            setDayIdx(clampedDayIdx);
+        }
+        // Keep day aligned when year/month changes narrow the available range.
+    }, [dayIdx, clampedDayIdx]);
+
     const handleConfirm = useCallback(() => {
-        onConfirm(isoFromParts(currentYear, monthIdx, clampedDayIdx + 1));
-    }, [clampedDayIdx, currentYear, monthIdx, onConfirm]);
+        onConfirm(isoFromParts(currentYear, clampedMonthIdx, clampedDayIdx + 1));
+    }, [clampedDayIdx, clampedMonthIdx, currentYear, onConfirm]);
 
     return (
         <View style={styles.card}>
             <Text style={styles.label}>{title || 'Select a date'}</Text>
             <View style={styles.columnsRow}>
-                <PickerColumn data={MONTHS} selectedIndex={monthIdx} onSelect={setMonthIdx} />
+                <PickerColumn
+                    data={allowedMonths}
+                    selectedIndex={clampedMonthIdx - monthMinIdx}
+                    onSelect={(idx) => setMonthIdx(monthMinIdx + idx)}
+                />
                 <View style={styles.columnDivider} />
-                <PickerColumn data={DAYS} selectedIndex={clampedDayIdx} onSelect={setDayIdx} />
+                <PickerColumn
+                    data={DAYS}
+                    selectedIndex={clampedDayIdx - (dayMin - 1)}
+                    onSelect={(idx) => setDayIdx(dayMin - 1 + idx)}
+                />
                 <View style={styles.columnDivider} />
                 <PickerColumn data={YEARS} selectedIndex={yearIdx} onSelect={setYearIdx} />
             </View>

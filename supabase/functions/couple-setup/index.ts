@@ -88,12 +88,34 @@ function validateDatingStartDate(
     input: string,
 ): { valid: boolean; value: string; hint?: string } {
     const trimmed = input.trim();
-    const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
-    if (!ISO_RE.test(trimmed)) {
-        return { valid: false, value: "", hint: pick(PROMPTS.reaskDatingStart) };
+    const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+    let normalizedDate = "";
+    const dateOnlyMatch = DATE_ONLY_RE.exec(trimmed);
+
+    if (dateOnlyMatch) {
+        const year = Number(dateOnlyMatch[1]);
+        const month = Number(dateOnlyMatch[2]);
+        const day = Number(dateOnlyMatch[3]);
+        const parsedDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+
+        const isExactDate = parsedDate.getUTCFullYear() === year &&
+            parsedDate.getUTCMonth() === month - 1 &&
+            parsedDate.getUTCDate() === day;
+
+        if (!isExactDate) {
+            return { valid: false, value: "", hint: pick(PROMPTS.reaskDatingStart) };
+        }
+
+        normalizedDate = trimmed;
+    } else {
+        const parsedFromIsoLike = new Date(trimmed);
+        if (Number.isNaN(parsedFromIsoLike.getTime())) {
+            return { valid: false, value: "", hint: pick(PROMPTS.reaskDatingStart) };
+        }
+        normalizedDate = parsedFromIsoLike.toISOString().slice(0, 10);
     }
 
-    const parsed = new Date(trimmed + "T12:00:00Z");
+    const parsed = new Date(normalizedDate + "T12:00:00Z");
 
     if (Number.isNaN(parsed.getTime())) {
         return { valid: false, value: "", hint: pick(PROMPTS.reaskDatingStart) };
@@ -105,11 +127,11 @@ function validateDatingStartDate(
 
     // Allow today — compare date-only (ignore time)
     const nowDate = new Date().toISOString().split("T")[0];
-    if (trimmed > nowDate) {
+    if (normalizedDate > nowDate) {
         return { valid: false, value: "", hint: pick(PROMPTS.reaskDatingStart) };
     }
 
-    return { valid: true, value: trimmed };
+    return { valid: true, value: normalizedDate };
 }
 
 function validateHelpFocus(input: string): { valid: boolean; value: string; hint?: string } {

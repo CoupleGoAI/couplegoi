@@ -42,6 +42,22 @@ function generateMessageId(prefix: string): string {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function normalizeDateOnlyInput(input: string): string | null {
+    const trimmed = input.trim();
+    const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (DATE_ONLY_RE.test(trimmed)) {
+        return trimmed;
+    }
+
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+
+    return parsed.toISOString().slice(0, 10);
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useCoupleSetup(): UseCoupleSetupReturn {
@@ -215,10 +231,15 @@ export function useCoupleSetup(): UseCoupleSetupReturn {
     /** Called when the date picker emits a confirmed ISO date. */
     const confirmDatePicker = useCallback(
         (isoDate: string) => {
+            const normalizedDate = normalizeDateOnlyInput(isoDate);
+            if (!normalizedDate) {
+                setError('Invalid date selected. Please choose a date from the picker.');
+                return;
+            }
             setActivePicker(null);
-            void sendMessage(isoDate);
+            void sendMessage(normalizedDate);
         },
-        [sendMessage],
+        [sendMessage, setError],
     );
 
     const retryComplete = useCallback(async (): Promise<void> => {
