@@ -17,6 +17,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useGameSession } from '@hooks/useGameSession';
 import { useHaptics } from '@hooks/useHaptics';
 import { useAuthStore } from '@store/authStore';
+import { useGamesStore } from '@store/gamesStore';
 import { GAME_DEFINITIONS } from '@/domain/games/catalog';
 import type { GameResultsScreenProps, RootNavProp } from '@navigation/types';
 import type { GameType, GameAnswerPayload, GamePromptPayload } from '@/types/games';
@@ -201,7 +202,11 @@ export default function GameResultsScreen(): React.ReactElement {
       {/* CTA */}
       <View style={styles.ctaWrap}>
         <TouchableOpacity
-          onPress={() => navigation.navigate('MainTabs')}
+          onPress={() => {
+            useGamesStore.getState().setActiveSessionId(null);
+            useGamesStore.getState().setLatestSnapshot(null);
+            navigation.navigate('MainTabs');
+          }}
           activeOpacity={0.85}
           style={styles.ctaBtn}
         >

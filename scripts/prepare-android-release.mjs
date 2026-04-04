@@ -8,14 +8,15 @@ const explicitReleaseMatch =
   COMMIT_MESSAGE.match(/\[release:android:(patch|minor|major)\]/i) ??
   COMMIT_MESSAGE.match(/release\(android\):\s*(patch|minor|major)/i);
 
-const bumpType = resolveBumpType(COMMIT_MESSAGE, explicitReleaseMatch);
-
-if (!bumpType) {
+if (!explicitReleaseMatch) {
   writeOutputs({
     should_release: 'false',
   });
   process.exit(0);
 }
+
+const bumpType = explicitReleaseMatch[1].toLowerCase();
+
 const appJsonPath = new URL('../app.json', import.meta.url);
 const packageJsonPath = new URL('../package.json', import.meta.url);
 
@@ -73,35 +74,6 @@ function bumpVersion(version, bump) {
   }
 
   return `${major}.${minor}.${patch + 1}`;
-}
-
-function resolveBumpType(commitMessage, explicitMatch) {
-  if (explicitMatch) {
-    return explicitMatch[1].toLowerCase();
-  }
-
-  const subject = commitMessage.split('\n')[0]?.trim() ?? '';
-  const conventionalMatch = subject.match(
-    /^(?<type>[a-z]+)(?:\([^)]+\))?(?<breaking>!)?:\s+/i
-  );
-
-  const hasBreakingChangeFooter = /BREAKING CHANGE:/i.test(commitMessage);
-
-  if (conventionalMatch?.groups?.breaking || hasBreakingChangeFooter) {
-    return 'major';
-  }
-
-  const commitType = conventionalMatch?.groups?.type?.toLowerCase();
-
-  if (commitType === 'feat') {
-    return 'minor';
-  }
-
-  if (commitType === 'fix') {
-    return 'patch';
-  }
-
-  return null;
 }
 
 function writeOutputs(values) {

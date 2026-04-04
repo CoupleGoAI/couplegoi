@@ -1,6 +1,6 @@
 # Android Releases
 
-This repo now supports Android APK releases directly from commit messages on `main`.
+This repo supports Android APK releases directly from commit messages on `main`.
 
 ## What it does
 
@@ -13,31 +13,9 @@ This repo now supports Android APK releases directly from commit messages on `ma
 - Builds a signed release APK with Gradle on GitHub Actions
 - Publishes a GitHub Release with the APK attached
 
-## How release detection works
+## How to trigger a release
 
-The workflow supports both semantic release rules and explicit overrides.
-
-### Automatic semantic releases
-
-If the latest commit follows conventional commits, the workflow maps it like this:
-
-- `feat:` -> `minor`
-- `fix:` -> `patch`
-- `feat!:` -> `major`
-- any commit with `BREAKING CHANGE:` in the body -> `major`
-
-Examples:
-
-- `fix: profile save button overlap` -> patch release
-- `feat: add shared prompts` -> minor release
-- `feat!: redesign onboarding` -> major release
-- `refactor: simplify auth store` -> no release
-- `chore: update copy` -> no release
-- `docs: tweak README` -> no release
-
-### Explicit release overrides
-
-Use either format in the commit subject or body to force a release regardless of commit type:
+Add a release token anywhere in the commit subject or body:
 
 - `[release:android:patch]`
 - `[release:android:minor]`
@@ -48,11 +26,12 @@ Use either format in the commit subject or body to force a release regardless of
 
 Examples:
 
+- `fix: profile save button overlap [release:android:patch]`
+- `feat: add shared prompts [release:android:minor]`
 - `chore: update copy [release:android:patch]`
-- `docs: publish FAQs [release:android:minor]`
-- `refactor: split chat state [release:android:patch]`
+- `refactor: split chat state [release:android:major]`
 
-Explicit overrides win over semantic detection.
+Commits without a release token do nothing.
 
 ## One-time setup
 
@@ -66,15 +45,11 @@ Explicit overrides win over semantic detection.
 
 To create `ANDROID_KEYSTORE_BASE64`, base64-encode your keystore file and save the resulting single-line string as the secret value.
 
-Example:
-
 ```bash
+# macOS
 base64 -i release.keystore | pbcopy
-```
 
-On Linux:
-
-```bash
+# Linux
 base64 -w 0 release.keystore
 ```
 
@@ -86,12 +61,9 @@ cd android
 ./gradlew assembleRelease
 ```
 
-For a locally signed release build, use the same keystore values you configured in GitHub.
-
 ## Notes
 
 - The workflow runs only on `main`.
-- Commits without a matching semantic rule or explicit release token do nothing.
-- The release commit created by the workflow uses `[skip ci]`, so the version bump commit does not loop into another release.
+- The release commit created by the workflow uses `[skip ci]`, so the version bump commit does not trigger another release.
 - The workflow does not use Expo cloud build or `EXPO_TOKEN`.
 - The APK is built entirely on GitHub Actions with Gradle.

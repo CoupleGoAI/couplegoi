@@ -113,7 +113,7 @@ export async function fetchPendingInvitations(
       .from('game_invitations')
       .select('*')
       .eq('couple_id', coupleId)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'accepted'])
       .order('created_at', { ascending: false });
 
     if (error) return { ok: false, error: 'Failed to fetch invitations' };

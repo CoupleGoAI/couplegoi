@@ -45,10 +45,26 @@ export function useGameInvite(): UseGameInviteReturn {
     const result = await fetchPendingInvitations(coupleId);
     if (!result.ok) return;
 
-    const incoming = result.data.find((i) => i.toUserId === userId) ?? null;
-    const outgoing = result.data.find((i) => i.fromUserId === userId) ?? null;
+    const incoming = result.data.find(
+      (i) => i.toUserId === userId && i.status === 'pending',
+    ) ?? null;
+    const outgoing = result.data.find(
+      (i) => i.fromUserId === userId && i.status === 'pending',
+    ) ?? null;
     store.getState().setPendingInvite(incoming);
     store.getState().setOutgoingInvite(outgoing);
+
+    // Detect when partner accepted the invite we're currently tracking
+    const currentOutgoing = store.getState().outgoingInvite;
+    if (currentOutgoing) {
+      const accepted = result.data.find(
+        (i) => i.id === currentOutgoing.id && i.status === 'accepted' && i.sessionId,
+      );
+      if (accepted?.sessionId) {
+        store.getState().setActiveSessionId(accepted.sessionId);
+        store.getState().setOutgoingInvite(null);
+      }
+    }
   }, [coupleId, userId, store]);
 
   // Subscribe to invitation changes

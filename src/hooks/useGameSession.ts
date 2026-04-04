@@ -46,6 +46,13 @@ export function useGameSession(sessionId: string | null): UseGameSessionReturn {
   useEffect(() => {
     if (!sessionId) return;
 
+    // Clear stale snapshot from a previous session so it doesn't
+    // trigger premature navigation (e.g. old 'completed' status)
+    const current = store.getState().latestSnapshot;
+    if (current && current.id !== sessionId) {
+      store.getState().setLatestSnapshot(null);
+    }
+
     void refreshSnapshot();
 
     channelRef.current = subscribeToSession(sessionId, () => {

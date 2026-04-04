@@ -23,6 +23,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useGameSession } from '@hooks/useGameSession';
 import { useHaptics } from '@hooks/useHaptics';
 import { useAuthStore } from '@store/authStore';
+import { useGamesStore } from '@store/gamesStore';
 import { GAME_DEFINITIONS } from '@/domain/games/catalog';
 import type { GameSessionScreenProps, RootNavProp } from '@navigation/types';
 import type { GameType, GameAnswerPayload, GamePromptPayload } from '@/types/games';
@@ -55,9 +56,11 @@ export default function GameSessionScreen(): React.ReactElement {
   // Navigate to results when session completes
   React.useEffect(() => {
     if (snapshot?.status === 'completed' && sessionId) {
+      useGamesStore.getState().setActiveSessionId(null);
       navigation.replace('GameResults', { sessionId });
     }
     if (snapshot?.status === 'cancelled') {
+      useGamesStore.getState().setActiveSessionId(null);
       navigation.goBack();
     }
   }, [snapshot?.status, sessionId, navigation]);
