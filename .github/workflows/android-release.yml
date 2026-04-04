@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -32,9 +33,19 @@ jobs:
 
       - name: Determine Android release
         id: prepare
-        env:
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-        run: npm run release:android:prepare
+        run: |
+          # Scan all non-merge commits in this push for the release token.
+          # Handles merge commits where head_commit is "Merge branch …"
+          # but one of the merged commits carries the release token.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MESSAGES="$(git log --no-merges --format='%s' -1)"
+          elif [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            MESSAGES="$(git log --no-merges --format='%s' -1)"
+          else
+            MESSAGES="$(git log --no-merges --format='%s' '${{ github.event.before }}'..'${{ github.event.after }}')"
+          fi
+          export COMMIT_MESSAGE="$MESSAGES"
+          npm run release:android:prepare
 
       - name: Stop when commit does not request a release
         if: steps.prepare.outputs.should_release != 'true'
@@ -48,6 +59,7 @@ jobs:
           git add app.json package.json package-lock.json
           git commit -m "${{ steps.prepare.outputs.release_commit_message }}"
           git tag "${{ steps.prepare.outputs.tag }}"
+          git pull --rebase origin main || true
           git push origin HEAD:main --follow-tags
 
       - name: Install dependencies
