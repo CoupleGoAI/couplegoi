@@ -1,4 +1,5 @@
 import { supabase } from '@data/supabase';
+import { log } from '@utils/logger';
 
 /**
  * Typed wrapper for Supabase PostgREST queries.
@@ -10,11 +11,16 @@ export async function supabaseQuery<T>(
 ): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
   try {
     const { data, error } = await queryFn();
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      log.error('supabaseQuery', 'Query failed', { error: error.message });
+      return { ok: false, error: error.message };
+    }
     if (data === null) return { ok: false, error: 'No data returned' };
     return { ok: true, data };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    log.error('supabaseQuery', 'Query threw', { error: msg });
+    return { ok: false, error: msg };
   }
 }
 
@@ -43,6 +49,7 @@ export async function invokeEdgeFunction<T>(
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
     if (sessionError || !sessionData.session?.access_token) {
+      log.warn('edgeFunction', 'No session for edge call', { fn: functionName });
       return { ok: false, error: 'Session expired. Please sign in again.' };
     }
 
@@ -57,6 +64,13 @@ export async function invokeEdgeFunction<T>(
       const status = typeof error.status === 'number' ? error.status : 0;
       const msg = typeof error.message === 'string' ? error.message : '';
 
+      log.error('edgeFunction', `${functionName} failed`, {
+        status,
+        message: msg,
+        // Log the raw error data if it exists (e.g. edge function returned JSON error)
+        responseData: typeof data === 'object' && data !== null ? data : undefined,
+      });
+
       if (status === 401 || msg.includes('JWT') || msg.includes('auth'))
         return { ok: false, error: 'Session expired. Please sign in again.' };
       if (status === 403 || msg.includes('forbidden'))
@@ -65,11 +79,15 @@ export async function invokeEdgeFunction<T>(
     }
 
     if (data === null || data === undefined) {
+      log.warn('edgeFunction', `${functionName} returned null`, { fn: functionName });
       return { ok: false, error: 'No data returned' };
     }
 
+    log.debug('edgeFunction', `${functionName} OK`, { fn: functionName });
     return { ok: true, data: data as T };
-  } catch {
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    log.error('edgeFunction', `${functionName} threw`, { error: msg });
     return { ok: false, error: 'Network error. Please check your connection.' };
   }
 }

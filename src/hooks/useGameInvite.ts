@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useGamesStore } from '@store/gamesStore';
 import { useAuthStore } from '@store/authStore';
+import { log } from '@utils/logger';
 import {
   createGameInvitation,
   respondToGameInvitation,
@@ -15,7 +16,6 @@ import type {
   GameType,
   GameCategoryKey,
   GameInvitation,
-  GamePromptPayload,
 } from '@/types/games';
 
 interface UseGameInviteReturn {
@@ -43,7 +43,13 @@ export function useGameInvite(): UseGameInviteReturn {
   const refreshInvitations = useCallback(async () => {
     if (!coupleId || !userId) return;
     const result = await fetchPendingInvitations(coupleId);
-    if (!result.ok) return;
+    if (!result.ok) {
+      log.warn('useGameInvite', 'Failed to fetch invitations', { error: result.error });
+      return;
+    }
+
+    // Capture tracked outgoing BEFORE overwriting store — otherwise it's null
+    const trackedOutgoing = store.getState().outgoingInvite;
 
     const incoming = result.data.find(
       (i) => i.toUserId === userId && i.status === 'pending',
@@ -54,13 +60,16 @@ export function useGameInvite(): UseGameInviteReturn {
     store.getState().setPendingInvite(incoming);
     store.getState().setOutgoingInvite(outgoing);
 
-    // Detect when partner accepted the invite we're currently tracking
-    const currentOutgoing = store.getState().outgoingInvite;
-    if (currentOutgoing) {
+    // Detect when partner accepted the invite we were tracking
+    if (trackedOutgoing) {
       const accepted = result.data.find(
-        (i) => i.id === currentOutgoing.id && i.status === 'accepted' && i.sessionId,
+        (i) => i.id === trackedOutgoing.id && i.status === 'accepted' && i.sessionId,
       );
       if (accepted?.sessionId) {
+        log.info('useGameInvite', 'Partner accepted invite, navigating to session', {
+          inviteId: accepted.id,
+          sessionId: accepted.sessionId,
+        });
         store.getState().setActiveSessionId(accepted.sessionId);
         store.getState().setOutgoingInvite(null);
       }
@@ -96,10 +105,12 @@ export function useGameInvite(): UseGameInviteReturn {
     store.getState().setIsLoading(false);
 
     if (!result.ok) {
+      log.error('useGameInvite', 'Failed to create invitation', { error: result.error, gameType, categoryKey });
       store.getState().setError(result.error);
       return;
     }
 
+    log.info('useGameInvite', 'Invitation sent', { inviteId: result.data.id, gameType });
     store.getState().setOutgoingInvite(result.data);
   }, [store]);
 
@@ -110,13 +121,12 @@ export function useGameInvite(): UseGameInviteReturn {
     store.getState().setIsLoading(true);
     store.getState().setError(null);
 
-    // Generate round manifest client-side from the shared catalog
+    // Generate round manifest — only IDs, prompt text resolved from catalog at render
     const seed = `${invitationId}-${Date.now()}`;
     const def = GAME_DEFINITIONS[invite.gameType];
     const prompts = selectPrompts(invite.gameType, invite.categoryKey, def.defaultRounds, seed);
     const roundManifest = prompts.map((p) => ({
       promptId: p.id,
-      promptPayload: buildPromptPayload(invite.gameType, p as unknown as Record<string, unknown>),
       categoryKey: p.category,
     }));
 
@@ -129,10 +139,12 @@ export function useGameInvite(): UseGameInviteReturn {
     store.getState().setIsLoading(false);
 
     if (!result.ok) {
+      log.error('useGameInvite', 'Failed to accept invitation', { error: result.error, invitationId });
       store.getState().setError(result.error);
       return null;
     }
 
+    log.info('useGameInvite', 'Accepted invitation, session created', { sessionId: result.data.id });
     store.getState().setPendingInvite(null);
     store.getState().setLatestSnapshot(result.data);
     store.getState().setActiveSessionId(result.data.id);
@@ -166,32 +178,3 @@ export function useGameInvite(): UseGameInviteReturn {
   };
 }
 
-function buildPromptPayload(
-  gameType: GameType,
-  prompt: Record<string, unknown>,
-): GamePromptPayload {
-  switch (gameType) {
-    case 'would_you_rather':
-      return {
-        type: 'would_you_rather',
-        optionA: prompt.optionA as string,
-        optionB: prompt.optionB as string,
-      };
-    case 'this_or_that':
-      return {
-        type: 'this_or_that',
-        optionA: prompt.optionA as string,
-        optionB: prompt.optionB as string,
-      };
-    case 'who_is_more_likely':
-      return {
-        type: 'who_is_more_likely',
-        prompt: prompt.prompt as string,
-      };
-    case 'never_have_i_ever':
-      return {
-        type: 'never_have_i_ever',
-        statement: prompt.statement as string,
-      };
-  }
-}

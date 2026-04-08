@@ -25,6 +25,7 @@ import { useHaptics } from '@hooks/useHaptics';
 import { useAuthStore } from '@store/authStore';
 import { useGamesStore } from '@store/gamesStore';
 import { GAME_DEFINITIONS } from '@/domain/games/catalog';
+import { resolvePromptPayload } from '@/domain/games/promptResolver';
 import type { GameSessionScreenProps, RootNavProp } from '@navigation/types';
 import type { GameType, GameAnswerPayload, GamePromptPayload } from '@/types/games';
 import {
@@ -88,6 +89,10 @@ export default function GameSessionScreen(): React.ReactElement {
     );
   }
 
+  // Resolve prompt from catalog (or fall back to DB payload for old sessions)
+  const prompt = resolvePromptPayload(currentRound.promptId, snapshot.gameType as GameType)
+    ?? currentRound.promptPayload;
+
   const isRevealed = currentRound.status === 'revealed';
 
   // Find answers for the revealed state
@@ -124,7 +129,7 @@ export default function GameSessionScreen(): React.ReactElement {
       <View style={styles.content}>
         {isRevealed ? (
           <RevealView
-            prompt={currentRound.promptPayload}
+            prompt={prompt}
             gameType={snapshot.gameType as GameType}
             myAnswer={myAnswer?.answerPayload ?? null}
             partnerAnswer={partnerAnswer?.answerPayload ?? null}
@@ -134,7 +139,7 @@ export default function GameSessionScreen(): React.ReactElement {
         ) : (
           <PromptView
             key={currentRound.id}
-            prompt={currentRound.promptPayload}
+            prompt={prompt}
             gameType={snapshot.gameType as GameType}
             onAnswer={handleAnswer}
             roundIndex={snapshot.currentRoundIndex}

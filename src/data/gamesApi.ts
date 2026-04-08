@@ -1,5 +1,6 @@
 import { invokeEdgeFunction } from '@data/apiClient';
 import { supabase } from '@data/supabase';
+import { log } from '@utils/logger';
 import type {
   GameType,
   GameCategoryKey,
@@ -8,9 +9,7 @@ import type {
   GameSessionPlayer,
   GameRound,
   GameAnswer,
-  GameResultSummary,
   GameHistoryEntry,
-  GamePromptPayload,
 } from '@/types/games';
 
 // ─── Invitation API ─────────────────────────────────────────
@@ -34,7 +33,6 @@ interface RespondInvitationInput {
   readonly response: 'accept' | 'decline';
   readonly roundManifest?: readonly {
     readonly promptId: string;
-    readonly promptPayload: GamePromptPayload;
     readonly categoryKey: GameCategoryKey;
   }[];
 }
@@ -116,9 +114,13 @@ export async function fetchPendingInvitations(
       .in('status', ['pending', 'accepted'])
       .order('created_at', { ascending: false });
 
-    if (error) return { ok: false, error: 'Failed to fetch invitations' };
+    if (error) {
+      log.error('gamesApi', 'fetchPendingInvitations failed', { coupleId, error: error.message });
+      return { ok: false, error: 'Failed to fetch invitations' };
+    }
     return { ok: true, data: mapInvitations(data ?? []) };
-  } catch {
+  } catch (e) {
+    log.error('gamesApi', 'fetchPendingInvitations threw', { error: e instanceof Error ? e.message : 'unknown' });
     return { ok: false, error: 'Network error' };
   }
 }
@@ -141,10 +143,14 @@ export async function fetchActiveSession(
       .limit(1)
       .maybeSingle();
 
-    if (error) return { ok: false, error: 'Failed to fetch session' };
+    if (error) {
+      log.error('gamesApi', 'fetchActiveSession failed', { coupleId, error: error.message });
+      return { ok: false, error: 'Failed to fetch session' };
+    }
     if (!data) return { ok: true, data: null };
     return { ok: true, data: mapSessionSnapshot(data) };
-  } catch {
+  } catch (e) {
+    log.error('gamesApi', 'fetchActiveSession threw', { error: e instanceof Error ? e.message : 'unknown' });
     return { ok: false, error: 'Network error' };
   }
 }

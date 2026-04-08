@@ -19,6 +19,7 @@ import { useHaptics } from '@hooks/useHaptics';
 import { useAuthStore } from '@store/authStore';
 import { useGamesStore } from '@store/gamesStore';
 import { GAME_DEFINITIONS } from '@/domain/games/catalog';
+import { resolvePromptPayload } from '@/domain/games/promptResolver';
 import type { GameResultsScreenProps, RootNavProp } from '@navigation/types';
 import type { GameType, GameAnswerPayload, GamePromptPayload } from '@/types/games';
 import {
@@ -63,9 +64,11 @@ export default function GameResultsScreen(): React.ReactElement {
         ? JSON.stringify(myA.answerPayload) === JSON.stringify(partnerA.answerPayload)
         : false;
       if (matched) matchCount++;
+      const resolvedPrompt = resolvePromptPayload(round.promptId, snapshot.gameType as GameType)
+        ?? round.promptPayload;
       details.push({
         roundIndex: round.roundIndex,
-        prompt: round.promptPayload,
+        prompt: resolvedPrompt,
         myAnswer: myA?.answerPayload ?? null,
         partnerAnswer: partnerA?.answerPayload ?? null,
         matched,

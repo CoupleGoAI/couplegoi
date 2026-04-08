@@ -32,3 +32,6 @@ yarn-error.*
 .claude-flow/
 .claude/settings.local.json
 prompt.log
+
+# App runtime logs
+logs/

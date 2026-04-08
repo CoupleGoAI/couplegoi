@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useGamesStore } from '@store/gamesStore';
 import { useAuthStore } from '@store/authStore';
+import { log } from '@utils/logger';
 import {
   submitGameAnswer,
   fetchSessionSnapshot,
@@ -39,6 +40,8 @@ export function useGameSession(sessionId: string | null): UseGameSessionReturn {
     const result = await fetchSessionSnapshot(sessionId);
     if (result.ok) {
       store.getState().setLatestSnapshot(result.data);
+    } else {
+      log.error('useGameSession', 'Failed to fetch snapshot', { sessionId, error: result.error });
     }
   }, [sessionId, store]);
 
@@ -100,6 +103,7 @@ export function useGameSession(sessionId: string | null): UseGameSessionReturn {
     store.getState().setPendingAnswer(null);
 
     if (!result.ok) {
+      log.error('useGameSession', 'Failed to submit answer', { sessionId, roundId, error: result.error });
       store.getState().setError(result.error);
       return;
     }

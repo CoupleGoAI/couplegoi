@@ -1,5 +1,6 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
+import { bumpMessageCount, updateMemory, type UserMemoryRow } from "./memory.ts";
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,24 @@ interface ProfileInfo {
   coupled: boolean;
   datingStartDate: string | null;
   helpFocus: string | null;
+  memory: UserMemoryRow | null;
+}
+
+function formatMemoryBlock(memory: UserMemoryRow | null, name: string): string {
+  if (!memory) return "";
+  const hasSummary = memory.summary && memory.summary.trim().length > 0;
+  const traitEntries = Object.entries(memory.traits ?? {}).filter(
+    ([, v]) => typeof v === "string" && v.trim().length > 0,
+  );
+  if (!hasSummary && traitEntries.length === 0) return "";
+
+  const lines: string[] = ["", `WHAT YOU KNOW ABOUT ${name}`];
+  if (hasSummary) lines.push(memory.summary.trim());
+  for (const [k, v] of traitEntries) lines.push(`- ${k}: ${v}`);
+  lines.push(
+    `Use this to personalize tone and examples. Never mention that you "remember" things — just act like you know them.`,
+  );
+  return lines.join("\n");
 }
 
 async function buildSystemPrompt(
@@ -129,13 +148,15 @@ async function buildSystemPrompt(
   profile: ProfileInfo,
 ): Promise<string> {
   const template = await fetchPromptTemplate(supabaseUrl, serviceKey, "chat_solo.txt");
+  const name = profile.name ?? "friend";
   return interpolate(template, {
-    NAME: profile.name ?? "friend",
+    NAME: name,
     RELATIONSHIP_STATUS: profile.coupled
       ? `in a relationship${profile.datingStartDate ? ` since ${profile.datingStartDate}` : ""}`
       : "single or exploring",
     FOCUS: profile.helpFocus ?? "general relationship support",
     TODAY_DATE: new Date().toISOString().slice(0, 10),
+    USER_MEMORY: formatMemoryBlock(profile.memory, name),
   });
 }
 
@@ -237,8 +258,8 @@ Deno.serve(async (req) => {
     return json({ error: "Too many requests. Please wait a moment." }, 429);
   }
 
-  // Fetch profile and history in parallel
-  const [profileResult, historyResult] = await Promise.all([
+  // Fetch profile, history, and user memory in parallel
+  const [profileResult, historyResult, memoryResult] = await Promise.all([
     supabase
       .from("profiles")
       .select("name, help_focus, dating_start_date, couple_id")
@@ -251,7 +272,14 @@ Deno.serve(async (req) => {
       .eq("conversation_type", "chat")
       .order("created_at", { ascending: false })
       .limit(20),
+    supabase
+      .from("user_memory")
+      .select("summary, traits, message_count")
+      .eq("user_id", userId)
+      .maybeSingle(),
   ]);
+
+  const memory = (memoryResult.data ?? null) as UserMemoryRow | null;
 
   const profile = profileResult.data as {
     name: string | null;
@@ -323,6 +351,7 @@ Deno.serve(async (req) => {
       coupled: !!profile?.couple_id,
       datingStartDate: profile?.dating_start_date ?? null,
       helpFocus: profile?.help_focus ?? null,
+      memory,
     });
 
     llmMessages = [
@@ -342,6 +371,11 @@ Deno.serve(async (req) => {
     content,
     conversation_type: conversationType,
   });
+
+  // Memory update bookkeeping (solo only)
+  const isSolo = conversationType === "chat";
+  const soloMemoryCount = memory?.message_count ?? 0;
+  const shouldUpdateMemory = isSolo && soloMemoryCount + 2 >= 6;
 
   // Stream response via SSE
   const provider = new GroqProvider(groqKey);
@@ -364,6 +398,30 @@ Deno.serve(async (req) => {
           conversation_type: conversationType,
         });
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+
+        // Background: update or bump memory counter. Never blocks the stream.
+        if (isSolo) {
+          const bgTask = shouldUpdateMemory
+            ? updateMemory({
+                supabase,
+                groqKey,
+                userId,
+                existingMemory: memory,
+                lastUserMessage: content,
+                lastAssistantMessage: fullText,
+              })
+            : bumpMessageCount(supabase, userId, memory !== null, soloMemoryCount, 2);
+
+          const er = (globalThis as {
+            EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void };
+          }).EdgeRuntime;
+          if (er?.waitUntil) {
+            er.waitUntil(bgTask.catch(() => {}));
+          } else {
+            // Local/dev fallback — fire and forget.
+            bgTask.catch(() => {});
+          }
+        }
       } catch {
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ e: "AI error" })}\n\n`),
