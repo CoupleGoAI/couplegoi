@@ -1,6 +1,11 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
-import { bumpMessageCount, updateMemory, type UserMemoryRow } from "./memory.ts";
+import { bumpMessageCount, updateMemory, type RecentTurn, type UserMemoryRow } from "./memory.ts";
+import {
+  bumpCoupleMessageCount,
+  updateCoupleMemory,
+  type CoupleMemoryRow,
+} from "./coupleMemory.ts";
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 
@@ -160,6 +165,27 @@ async function buildSystemPrompt(
   });
 }
 
+function formatCoupleMemoryBlock(
+  memory: CoupleMemoryRow | null,
+  nameA: string,
+  nameB: string,
+): string {
+  if (!memory) return "";
+  const hasSummary = memory.summary && memory.summary.trim().length > 0;
+  const traitEntries = Object.entries(memory.traits ?? {}).filter(
+    ([, v]) => typeof v === "string" && v.trim().length > 0,
+  );
+  if (!hasSummary && traitEntries.length === 0) return "";
+
+  const lines: string[] = ["", `WHAT YOU KNOW ABOUT ${nameA} & ${nameB} TOGETHER`];
+  if (hasSummary) lines.push(memory.summary.trim());
+  for (const [k, v] of traitEntries) lines.push(`- ${k}: ${v}`);
+  lines.push(
+    `Use this to personalize tone and examples for the couple. Never say you "remember" things — just act like you know them.`,
+  );
+  return lines.join("\n");
+}
+
 async function buildCoupleSystemPrompt(
   supabaseUrl: string,
   serviceKey: string,
@@ -167,6 +193,7 @@ async function buildCoupleSystemPrompt(
   partnerName: string,
   datingStartDate: string | null,
   helpFocus: string | null,
+  coupleMemory: CoupleMemoryRow | null,
 ): Promise<string> {
   const template = await fetchPromptTemplate(supabaseUrl, serviceKey, "chat_couple.txt");
   return interpolate(template, {
@@ -175,6 +202,7 @@ async function buildCoupleSystemPrompt(
     RELATIONSHIP_STATUS: datingStartDate ? `together since ${datingStartDate}` : "together",
     FOCUS: helpFocus ?? "general relationship support",
     TODAY_DATE: new Date().toISOString().slice(0, 10),
+    COUPLE_MEMORY: formatCoupleMemoryBlock(coupleMemory, myName, partnerName),
   });
 }
 
@@ -297,6 +325,11 @@ Deno.serve(async (req) => {
   const isCouple = requestMode === "couple" && !!profile?.couple_id;
   let conversationType: "chat" | "couple_chat" = "chat";
   let llmMessages: LLMMessage[] = [];
+  let coupleMemory: CoupleMemoryRow | null = null;
+  let activeCoupleId: string | null = null;
+  let coupleNameA = "Partner 1";
+  let coupleNameB = "Partner 2";
+  let coupleHistoryRows: Array<{ role: string; content: string; user_id: string }> = [];
 
   if (isCouple) {
     const coupleId = profile!.couple_id!;
@@ -311,7 +344,7 @@ Deno.serve(async (req) => {
       const c = coupleRow as { partner1_id: string; partner2_id: string };
       const partnerId = c.partner1_id === userId ? c.partner2_id : c.partner1_id;
 
-      const [partnerProfileResult, coupleHistResult] = await Promise.all([
+      const [partnerProfileResult, coupleHistResult, coupleMemoryResult] = await Promise.all([
         supabase.from("profiles").select("name, help_focus").eq("id", partnerId).maybeSingle(),
         supabase
           .from("messages")
@@ -320,16 +353,34 @@ Deno.serve(async (req) => {
           .eq("conversation_type", "couple_chat")
           .order("created_at", { ascending: false })
           .limit(20),
+        supabase
+          .from("couple_memory")
+          .select("summary, traits, message_count")
+          .eq("couple_id", coupleId)
+          .maybeSingle(),
       ]);
 
       conversationType = "couple_chat";
+      activeCoupleId = coupleId;
+      coupleMemory = (coupleMemoryResult.data ?? null) as CoupleMemoryRow | null;
       const myName = profile?.name ?? "Partner 1";
       const partnerProfile = partnerProfileResult.data as { name: string | null; help_focus: string | null } | null;
       const partnerName = partnerProfile?.name ?? "Partner 2";
+      coupleNameA = myName;
+      coupleNameB = partnerName;
       const focus = profile?.help_focus ?? partnerProfile?.help_focus ?? null;
-      const couplePrompt = await buildCoupleSystemPrompt(supabaseUrl, supabaseServiceKey, myName, partnerName, profile?.dating_start_date ?? null, focus);
+      const couplePrompt = await buildCoupleSystemPrompt(
+        supabaseUrl,
+        supabaseServiceKey,
+        myName,
+        partnerName,
+        profile?.dating_start_date ?? null,
+        focus,
+        coupleMemory,
+      );
 
       const coupleHistory = (coupleHistResult.data ?? []) as Array<{ role: string; content: string; user_id: string }>;
+      coupleHistoryRows = coupleHistory;
 
       llmMessages = [
         { role: "system", content: couplePrompt },
@@ -372,10 +423,12 @@ Deno.serve(async (req) => {
     conversation_type: conversationType,
   });
 
-  // Memory update bookkeeping (solo only)
+  // Memory update bookkeeping
   const isSolo = conversationType === "chat";
   const soloMemoryCount = memory?.message_count ?? 0;
   const shouldUpdateMemory = isSolo && soloMemoryCount + 2 >= 6;
+  const coupleMemoryCount = coupleMemory?.message_count ?? 0;
+  const shouldUpdateCoupleMemory = !isSolo && coupleMemoryCount + 2 >= 6;
 
   // Stream response via SSE
   const provider = new GroqProvider(groqKey);
@@ -400,18 +453,68 @@ Deno.serve(async (req) => {
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
 
         // Background: update or bump memory counter. Never blocks the stream.
+        let bgTask: Promise<void> | null = null;
         if (isSolo) {
-          const bgTask = shouldUpdateMemory
-            ? updateMemory({
-                supabase,
-                groqKey,
-                userId,
-                existingMemory: memory,
-                lastUserMessage: content,
-                lastAssistantMessage: fullText,
-              })
-            : bumpMessageCount(supabase, userId, memory !== null, soloMemoryCount, 2);
+          if (shouldUpdateMemory) {
+            // Last 6 turns from history (already chronological after .reverse() in build),
+            // plus the just-completed user/assistant pair.
+            const recentTurns: RecentTurn[] = [
+              ...historyRows
+                .slice(0, 4)
+                .reverse()
+                .map((r) => ({ role: r.role, content: r.content })),
+              { role: "user", content },
+              { role: "assistant", content: fullText },
+            ];
+            bgTask = updateMemory({
+              supabase,
+              groqKey,
+              userId,
+              existingMemory: memory,
+              recentTurns,
+            });
+          } else {
+            bgTask = bumpMessageCount(supabase, userId, memory !== null, soloMemoryCount, 2);
+          }
+        } else if (activeCoupleId) {
+          if (shouldUpdateCoupleMemory) {
+            // Build redacted-input turns: last few couple_chat messages + this turn.
+            const recent = coupleHistoryRows
+              .slice(0, 5)
+              .reverse()
+              .map((r) => ({
+                speaker:
+                  r.role === "assistant"
+                    ? ("assistant" as const)
+                    : r.user_id === userId
+                      ? ("A" as const)
+                      : ("B" as const),
+                text: r.content,
+              }));
+            recent.push({ speaker: "A" as const, text: content });
+            recent.push({ speaker: "assistant" as const, text: fullText });
 
+            bgTask = updateCoupleMemory({
+              supabase,
+              groqKey,
+              coupleId: activeCoupleId,
+              existingMemory: coupleMemory,
+              rawTurns: recent,
+              nameA: coupleNameA,
+              nameB: coupleNameB,
+            });
+          } else {
+            bgTask = bumpCoupleMessageCount(
+              supabase,
+              activeCoupleId,
+              coupleMemory !== null,
+              coupleMemoryCount,
+              2,
+            );
+          }
+        }
+
+        if (bgTask) {
           const er = (globalThis as {
             EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void };
           }).EdgeRuntime;

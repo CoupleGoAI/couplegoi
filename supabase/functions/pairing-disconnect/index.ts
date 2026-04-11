@@ -107,6 +107,10 @@ Deno.serve(async (req) => {
 
   if (coupleUpdateError) return json({ error: "Failed to deactivate couple" }, 500);
 
+  // Wipe shared couple memory so it can never resurface on a future reconnect.
+  // Best-effort: failure here must not block disconnect.
+  await supabase.from("couple_memory").delete().eq("couple_id", coupleId);
+
   // Clear couple_id on both profiles
   await supabase
     .from("profiles")

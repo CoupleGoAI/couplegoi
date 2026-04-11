@@ -22,18 +22,17 @@ const TRAIT_KEYS = [
 ] as const;
 
 const MAX_MEMORY_CHARS = 3000;
+const MAX_SUMMARY_CHARS = 400;
 
 function clamp(summary: string, traits: Record<string, string>): {
   summary: string;
   traits: Record<string, string>;
 } {
-  let s = summary;
+  // Hard summary cap first — never let trait pressure eat the whole summary.
+  let s = summary.slice(0, MAX_SUMMARY_CHARS);
   let t = { ...traits };
   const size = () => JSON.stringify({ summary: s, traits: t }).length;
 
-  while (size() > MAX_MEMORY_CHARS && s.length > 200) {
-    s = s.slice(0, Math.max(200, s.length - 100)).trim();
-  }
   while (size() > MAX_MEMORY_CHARS) {
     // drop the longest trait value
     const entries = Object.entries(t);
@@ -41,6 +40,9 @@ function clamp(summary: string, traits: Record<string, string>): {
     entries.sort((a, b) => b[1].length - a[1].length);
     const [longestKey] = entries[0];
     delete t[longestKey];
+  }
+  if (size() > MAX_MEMORY_CHARS) {
+    s = s.slice(0, Math.max(0, MAX_MEMORY_CHARS - 100));
   }
   return { summary: s, traits: t };
 }
@@ -93,15 +95,20 @@ async function callGroqJson(
   return JSON.parse(content);
 }
 
+export interface RecentTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 function buildPrompt(
   existing: UserMemoryRow | null,
-  lastUser: string,
-  lastAssistant: string,
+  recentTurns: RecentTurn[],
 ): string {
   const existingJson = existing
     ? JSON.stringify({ summary: existing.summary, traits: existing.traits })
     : "none";
-  return `You maintain a short memory about a user of a relationship-advice app. Merge new insights from their latest turn into the existing memory. Keep durable facts (personality, values, recurring patterns, goals, fears, likes, dislikes, pain points, preferences, past experiences). Drop ephemeral details.
+  const turnsBlock = recentTurns.map((t) => `${t.role}: ${t.content}`).join("\n");
+  return `You maintain a short memory about a user of a relationship-advice app. Merge new insights from their recent turns into the existing memory. Keep durable facts (personality, values, recurring patterns, goals, fears, likes, dislikes, pain points, preferences, past experiences). Drop ephemeral details.
 
 Output JSON only with this exact shape:
 {"summary": string, "traits": {"personality": string, "likes": string, "dislikes": string, "fears": string, "experiences": string, "pain_points": string, "preferences": string, "goals": string}}
@@ -109,15 +116,14 @@ Output JSON only with this exact shape:
 Rules:
 - Total output must be under 3000 characters.
 - Leave any trait value as "" if unknown or not yet observed.
-- summary is a single short paragraph (max ~400 chars) capturing who this person is.
+- summary is a single short paragraph (max 400 chars) capturing who this person is.
 - Never invent facts. Only write what the conversation actually supports.
 
 EXISTING MEMORY:
 ${existingJson}
 
-LATEST TURN:
-user: ${lastUser}
-assistant: ${lastAssistant}`;
+RECENT TURNS:
+${turnsBlock}`;
 }
 
 export interface UpdateMemoryArgs {
@@ -125,16 +131,15 @@ export interface UpdateMemoryArgs {
   groqKey: string;
   userId: string;
   existingMemory: UserMemoryRow | null;
-  lastUserMessage: string;
-  lastAssistantMessage: string;
+  recentTurns: RecentTurn[];
 }
 
 export async function updateMemory(args: UpdateMemoryArgs): Promise<void> {
-  const { supabase, groqKey, userId, existingMemory, lastUserMessage, lastAssistantMessage } = args;
+  const { supabase, groqKey, userId, existingMemory, recentTurns } = args;
   try {
     const raw = await callGroqJson(
       groqKey,
-      buildPrompt(existingMemory, lastUserMessage, lastAssistantMessage),
+      buildPrompt(existingMemory, recentTurns),
     );
     const validated = validateParsed(raw);
     if (!validated) throw new Error("invalid_shape");

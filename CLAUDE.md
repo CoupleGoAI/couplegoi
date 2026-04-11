@@ -44,6 +44,7 @@ Before writing any code, load the relevant skill file:
 - `.claude/skills/supabase.md` — all Supabase, edge functions, JWT, MCP schema inspection
 - `.claude/skills/react-native.md` — Expo/RN conventions, Zustand, Reanimated, styling
 - `.claude/skills/agent-workflow.md` — command selection, native subagent handoffs, output format
+- `.claude/skills/save-changes.md` — safe git save flow that always uses branch `vanya`, never `main`
 
 ---
 
@@ -60,6 +61,7 @@ Choose the right command for the job:
 | `/implement`        | New feature work — direct by default, native subagents when scope justifies it |
 | `/modify-small`     | Small targeted change — Claude directly, fastest minimal-diff path             |
 | `/modify-big`       | Large or cross-cutting change — Claude-native multiagent workflow with explicit handoffs |
+| `/save-changes`     | Stage relevant files, switch to `vanya`, commit cleanly, and push without touching `main` |
 
 ### Native subagents
 

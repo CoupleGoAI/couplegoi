@@ -2,9 +2,10 @@ import 'react-native-url-polyfill/auto';
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
+import { runtimeConfig } from '@/config/runtimeConfig';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const PUBLISHABLE_DEFAULT_KEY = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+const SUPABASE_URL = runtimeConfig.supabaseUrl;
+const PUBLISHABLE_DEFAULT_KEY = runtimeConfig.supabasePublishableDefaultKey;
 
 const SECURE_STORE_CHUNK_SIZE = 2000;
 const CHUNK_META_SUFFIX = '_meta';
