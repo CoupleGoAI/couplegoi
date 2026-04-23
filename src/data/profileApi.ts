@@ -108,7 +108,8 @@ export async function uploadAvatar(
 export async function exportData(): Promise<ProfileResult<string>> {
   try {
     const result = await invokeEdgeFunction<unknown>('data-export');
-    return { ok: true, data: JSON.stringify(result, null, 2) };
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, data: JSON.stringify(result.data, null, 2) };
   } catch {
     return { ok: false, error: 'Failed to export data. Please try again.' };
   }

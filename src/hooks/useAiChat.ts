@@ -102,25 +102,37 @@ export function useAiChat(mode: ChatMode): UseAiChatReturn {
         return () => { cancelled = true; };
     }, [mode, userId, partnerInfo, labelNames]);
 
-    // Realtime subscription for couple mode
+    // Realtime subscription for couple mode — pull-on-notify pattern.
+    // Messages are encrypted at rest so realtime payloads contain ciphertext.
+    // On INSERT we ignore the payload and re-fetch decrypted history instead.
     useEffect(() => {
-        if (mode !== 'couple' || !partnerInfo) return;
+        if (mode !== 'couple' || !partnerInfo || !userId) return;
+
+        let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
         const channel = subscribeToCoupleChatMessages(
             partnerInfo.id,
-            partnerInfo.name,
-            (msg) => {
-                const normalized =
-                    msg.role === 'assistant'
-                        ? { ...msg, text: substitutePartnerLabels(msg.text, labelNames) }
-                        : msg;
-                setMessages((prev) =>
-                    prev.some((m) => m.id === normalized.id) ? prev : [...prev, normalized],
-                );
+            () => {
+                // Debounce rapid-fire inserts (user + assistant back-to-back).
+                if (refreshTimer) clearTimeout(refreshTimer);
+                refreshTimer = setTimeout(() => {
+                    void fetchCoupleChatHistory(userId, partnerInfo).then((result) => {
+                        if (!result.ok) return;
+                        const spliced = result.data.map((m) =>
+                            m.role === 'assistant'
+                                ? { ...m, text: substitutePartnerLabels(m.text, labelNames) }
+                                : m,
+                        );
+                        setMessages(spliced);
+                    });
+                }, 300);
             },
         );
-        return () => { void supabase.removeChannel(channel); };
-    }, [mode, partnerInfo, labelNames]);
+        return () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            void supabase.removeChannel(channel);
+        };
+    }, [mode, partnerInfo, userId, labelNames]);
 
     const send = useCallback(async (text: string): Promise<void> => {
         const validation = validateMessageText(text);

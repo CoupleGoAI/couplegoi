@@ -93,8 +93,8 @@ export default function MemoryInsightScreen({ navigation }: MemoryInsightScreenP
 
     const formattedDate = memory?.updated_at
         ? new Date(memory.updated_at).toLocaleDateString(undefined, {
-              year: 'numeric', month: 'short', day: 'numeric',
-          })
+            year: 'numeric', month: 'short', day: 'numeric',
+        })
         : null;
 
     return (
@@ -326,5 +326,51 @@ const styles = StyleSheet.create({
         color: colors.gray,
         textAlign: 'center',
         marginTop: spacing.sm,
+    },
+    correctBtn: {
+        marginTop: spacing.sm,
+        alignSelf: 'flex-start',
+    },
+    correctLabel: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.sm,
+        fontWeight: fontWeight.semibold,
+        color: colors.primary,
+    },
+    correctionForm: {
+        marginTop: spacing.md,
+        gap: spacing.sm,
+    },
+    correctionInput: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.base,
+        color: colors.foreground,
+        backgroundColor: colors.background,
+        borderRadius: radii.radiusSm,
+        borderWidth: 1,
+        borderColor: colors.borderDefault,
+        padding: spacing.md,
+        minHeight: 72,
+        textAlignVertical: 'top',
+    },
+    correctionActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: spacing.lg,
+    },
+    cancelLabel: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.sm,
+        fontWeight: fontWeight.medium,
+        color: colors.foregroundMuted,
+    },
+    submitLabel: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.sm,
+        fontWeight: fontWeight.semibold,
+        color: colors.primary,
+    },
+    submitDisabled: {
+        opacity: 0.4,
     },
 });

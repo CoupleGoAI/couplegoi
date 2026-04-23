@@ -1,4 +1,5 @@
 import { supabase } from '@data/supabase';
+import { invokeEdgeFunction } from '@data/apiClient';
 import { runtimeConfig } from '@/config/runtimeConfig';
 import type { ChatMessage, ChatHistoryResult } from '@/types';
 
@@ -25,24 +26,14 @@ interface SSEChunk {
 }
 
 export async function fetchChatHistory(): Promise<ChatHistoryResult> {
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) {
-        return { ok: false, error: 'Not authenticated.' };
-    }
+    const result = await invokeEdgeFunction<{ messages: MessageRow[] }>(
+        'get-messages',
+        { conversation_type: 'chat', limit: HISTORY_LIMIT },
+    );
 
-    const { data, error } = await supabase
-        .from('messages')
-        .select('id, role, content, created_at')
-        .eq('user_id', sessionData.session.user.id)
-        .eq('conversation_type', 'chat')
-        .order('created_at', { ascending: false })
-        .limit(HISTORY_LIMIT);
+    if (!result.ok) return { ok: false, error: 'Failed to load history.' };
 
-    if (error) {
-        return { ok: false, error: 'Failed to load history.' };
-    }
-
-    const rows = (data ?? []) as MessageRow[];
+    const rows = result.data.messages ?? [];
     const messages: ChatMessage[] = rows.map((row) => ({
         id: row.id,
         role: row.role,
@@ -51,7 +42,6 @@ export async function fetchChatHistory(): Promise<ChatHistoryResult> {
         status: 'sent' as const,
     }));
 
-    messages.reverse();
     return { ok: true, data: messages };
 }
 

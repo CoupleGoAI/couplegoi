@@ -1,4 +1,5 @@
 import { supabase } from '@data/supabase';
+import { invokeEdgeFunction } from '@data/apiClient';
 import type { ChatMessage, ChatHistoryResult } from '@/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -62,17 +63,18 @@ export async function fetchCoupleChatHistory(
     myId: string,
     partner: PartnerInfo,
 ): Promise<ChatHistoryResult> {
-    const { data, error } = await supabase
-        .from('messages')
-        .select('id, role, content, created_at, user_id')
-        .or(`user_id.eq.${myId},user_id.eq.${partner.id}`)
-        .eq('conversation_type', 'couple_chat')
-        .order('created_at', { ascending: false })
-        .limit(HISTORY_LIMIT);
+    const result = await invokeEdgeFunction<{ messages: CoupleChatRow[] }>(
+        'get-messages',
+        {
+            conversation_type: 'couple_chat',
+            partner_id: partner.id,
+            limit: HISTORY_LIMIT,
+        },
+    );
 
-    if (error) return { ok: false, error: 'Failed to load chat history.' };
+    if (!result.ok) return { ok: false, error: 'Failed to load chat history.' };
 
-    const rows = (data ?? []) as CoupleChatRow[];
+    const rows = result.data.messages ?? [];
     const messages: ChatMessage[] = rows.map((row) => {
         const isAssistant = row.role === 'assistant';
         const isMine = row.user_id === myId;
@@ -86,7 +88,6 @@ export async function fetchCoupleChatHistory(
         };
     });
 
-    messages.reverse();
     return { ok: true, data: messages };
 }
 
@@ -95,15 +96,17 @@ export async function fetchCoupleChatHistory(
 interface RealtimeMessagePayload {
     id: string;
     role: string;
-    content: string;
-    created_at: string;
     conversation_type: string;
 }
 
+/**
+ * Pull-on-notify: realtime payload now contains ciphertext (encrypted at rest).
+ * Instead of reading content from the INSERT payload, we fire onNotify so the
+ * consumer can re-fetch the full (decrypted) history via get-messages.
+ */
 export function subscribeToCoupleChatMessages(
     partnerId: string,
-    partnerName: string | null,
-    onInsert: (msg: ChatMessage) => void,
+    onNotify: () => void,
 ): RealtimeChannel {
     const channel = supabase
         .channel('couple_chat_' + partnerId)
@@ -119,16 +122,7 @@ export function subscribeToCoupleChatMessages(
                 const row = payload.new as RealtimeMessagePayload;
                 if (row.conversation_type !== 'couple_chat') return;
                 if (row.role !== 'user' && row.role !== 'assistant') return;
-
-                onInsert({
-                    id: row.id,
-                    role: row.role === 'assistant' ? 'assistant' : 'partner',
-                    text: row.content,
-                    timestamp: new Date(row.created_at).getTime(),
-                    status: 'sent',
-                    senderName: row.role !== 'assistant' ? (partnerName ?? 'Partner') : undefined,
-                    isNew: row.role === 'assistant',
-                });
+                onNotify();
             },
         )
         .subscribe();
@@ -146,7 +140,17 @@ export interface CoupleSetupIncomingMessage {
     senderName: string | null;
 }
 
-/** Subscribes to partner's couple_setup messages (INSERT events on messages table). */
+interface CoupleSetupRealtimePayload {
+    id: string;
+    role: string;
+    content: string;
+    created_at: string;
+    conversation_type: string;
+}
+
+/** Subscribes to partner's couple_setup messages (INSERT events on messages table).
+ *  couple_setup messages are NOT encrypted (they go through the couple-setup edge
+ *  function, not ai-chat), so reading content from the payload is safe here. */
 export function subscribeToPartnerCoupleSetupMessages(
     partnerId: string,
     partnerName: string | null,
@@ -163,13 +167,13 @@ export function subscribeToPartnerCoupleSetupMessages(
                 filter: `user_id=eq.${partnerId}`,
             },
             (payload) => {
-                const row = payload.new as RealtimeMessagePayload;
+                const row = payload.new as CoupleSetupRealtimePayload;
                 if (row.conversation_type !== 'couple_setup') return;
                 if (row.role !== 'user' && row.role !== 'assistant') return;
 
                 onInsert({
                     id: row.id,
-                    role: row.role,
+                    role: row.role as 'user' | 'assistant',
                     content: row.content,
                     createdAt: new Date(row.created_at).getTime(),
                     senderName: row.role === 'user' ? (partnerName ?? 'Partner') : null,

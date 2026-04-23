@@ -12,6 +12,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as chrono from "https://esm.sh/chrono-node@2";
+import { makeCorsHeaders } from "../_shared/cors.ts";
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 
