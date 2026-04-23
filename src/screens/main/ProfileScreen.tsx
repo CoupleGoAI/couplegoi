@@ -109,31 +109,16 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-        });
-        if (!result.canceled && result.assets[0]) {
-            await uploadAvatar(result.assets[0].uri);
-        }
-    }, [uploadAvatar]);
-
-    const handleSave = useCallback(async (): Promise<void> => {
-        const nameErr = validateName(name);
-        if (nameErr) { setValidationError(nameErr); return; }
-
-        const birthErr = validateBirthDate(birthDateStr);
-        if (birthErr) { setValidationError(birthErr); return; }
-
-        const datingErr = validateDatingStartDate(datingDateStr);
-        if (datingErr) { setValidationError(datingErr); return; }
-
-        const crossErr = validateDatingAfterBirth(datingDateStr, birthDateStr);
-        if (crossErr) { setValidationError(crossErr); return; }
-
-        setValidationError(null);
-
-        const success = await saveProfile({
-            name: name.trim(),
+                                    <View style={styles.secondaryRow}>
+                                        {hasCoupleId && (
+                                            <TouchableOpacity
+                                                style={[styles.disconnectBtn, styles.secondaryBtn]}
+                                                activeOpacity={0.8}
+                                                onPress={() => navigation.navigate('DisconnectConfirm')}
+                                            >
+                                                <Text style={styles.disconnectLabel}>Disconnect from partner</Text>
+                                            </TouchableOpacity>
+                                        )}
             birthDate: birthDateStr || null,
             helpFocus: helpFocus || null,
             datingStartDate: datingDateStr || null,
@@ -141,6 +126,27 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
 
         if (success) navigation.goBack();
     }, [name, birthDateStr, helpFocus, datingDateStr, saveProfile, navigation]);
+    const [isExporting, setIsExporting] = useState(false);
+
+                                    <TouchableOpacity
+                                        style={styles.memoryBtn}
+                                        activeOpacity={0.8}
+                                        disabled={isExporting}
+                                        onPress={() => { void handleExport(); }}
+                                    >
+                                        <Text style={styles.memoryLabel}>
+                                            {isExporting ? 'Preparing export…' : 'Download my data'}
+                                        </Text>
+                                    </TouchableOpacity>
+    const handleExport = useCallback(async (): Promise<void> => {
+        setIsExporting(true);
+        try {
+            const result = await exportData();
+            if (!result.ok) return;
+            await Share.share({ message: result.data, title: 'Your CoupleGoAI data' });
+        } finally {
+            setIsExporting(false);
+    }, []);
 
     const [isExporting, setIsExporting] = useState(false);
 
@@ -169,8 +175,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                 <HeaderRow onBack={() => navigation.goBack()} />
 
                 <ScrollView
-                    contentContainerStyle={[
-                        styles.scroll,
+
                         { flexGrow: 1, paddingBottom: bottomScrollPadding },
                     ]}
                     showsVerticalScrollIndicator={false}
@@ -181,20 +186,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                         avatarUrl={user?.avatarUrl ?? null}
                         isUploading={isUploading}
                         animStyle={avatarAnimStyle}
-                        onPress={() => { void handleAvatarPress(); }}
-                    />
-
-                    <FormSection delay={0} label="Name">
-                        <TextInput
-                            value={name}
-                            onChangeText={setName}
-                            placeholder="Your name"
-                            placeholderTextColor={colors.gray}
-                            maxLength={60}
-                            style={styles.textInput}
-                        />
-                    </FormSection>
-
                     <FormSection delay={100} label="Birth Date">
                         <DateFieldRow
                             label="Birth Date"
@@ -202,9 +193,18 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                             displayStr={birthDateStr}
                             showPicker={showBirthPicker}
                             onPress={() => setShowBirthPicker((p) => !p)}
-                            onChange={handleBirthDateChange}
                             maximumDate={getMaxBirthDate()}
-                        />
+
+                        <TouchableOpacity
+                            style={styles.memoryBtn}
+                            activeOpacity={0.8}
+                            disabled={isExporting}
+                            onPress={() => { void handleExport(); }}
+                        >
+                            <Text style={styles.memoryLabel}>
+                                {isExporting ? 'Preparing export…' : 'Download my data'}
+                            </Text>
+                        </TouchableOpacity>
                     </FormSection>
 
                     <FormSection delay={200} label="Help Focus">
@@ -213,7 +213,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                     </FormSection>
 
                     {hasCoupleId && (
-                        <FormSection delay={300} label="Dating Start Date">
                             <DateFieldRow
                                 label="Dating Start Date"
                                 value={datingDateValue}

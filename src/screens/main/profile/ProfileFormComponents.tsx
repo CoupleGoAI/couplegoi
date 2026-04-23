@@ -402,6 +402,20 @@ export const styles = StyleSheet.create({
         fontWeight: fontWeight.semibold,
         color: colors.gray,
     },
+    deleteBtn: {
+        alignSelf: 'center',
+        marginTop: spacing.sm,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.lg,
+        borderRadius: radii.radiusFull,
+    },
+    deleteLabel: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.sm,
+        fontWeight: fontWeight.medium,
+        color: colors.gray,
+        textDecorationLine: 'underline',
+    },
     pickerContainer: {
         marginTop: spacing.sm,
         backgroundColor: colors.background,
