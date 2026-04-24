@@ -67,11 +67,7 @@ export async function fetchCoupleInsightsRaw(
                 .returns<MessageRow[]>(),
         ]);
 
-        if (sessionsRes.error || resultsRes.error || messagesRes.error) {
-            return fail('network');
-        }
-
-        const sessions = (sessionsRes.data ?? []).map((s) => ({
+        const sessions = ((sessionsRes.error ? [] : sessionsRes.data) ?? []).map((s) => ({
             id: String(s.id),
             gameType: s.game_type,
             status: s.status,
@@ -80,13 +76,13 @@ export async function fetchCoupleInsightsRaw(
             completedAt: s.completed_at,
         }));
 
-        const results = (resultsRes.data ?? []).map((r) => ({
+        const results = ((resultsRes.error ? [] : resultsRes.data) ?? []).map((r) => ({
             compatibilityScore: r.compatibility_score,
             matchCount: r.match_count,
             roundCount: r.round_count,
         }));
 
-        const messageDates = (messagesRes.data ?? []).map((m) => m.created_at);
+        const messageDates = ((messagesRes.error ? [] : messagesRes.data) ?? []).map((m) => m.created_at);
 
         return {
             ok: true,

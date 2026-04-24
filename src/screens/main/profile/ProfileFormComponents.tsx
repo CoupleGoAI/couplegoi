@@ -338,6 +338,14 @@ export const styles = StyleSheet.create({
         fontWeight: fontWeight.semibold,
         color: colors.foregroundMuted,
     },
+    secondaryRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: spacing.sm,
+    },
+    secondaryBtn: {
+        alignItems: 'center',
+    },
     disconnectBtn: {
         alignSelf: 'center',
         paddingVertical: spacing.md,
@@ -365,6 +373,20 @@ export const styles = StyleSheet.create({
         fontWeight: fontWeight.medium,
         color: colors.gray,
         textDecorationLine: 'underline',
+    },
+    logoutBtn: {
+        alignSelf: 'center',
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.xl,
+        borderRadius: radii.radiusFull,
+        borderWidth: 1.5,
+        borderColor: colors.gray,
+    },
+    logoutLabel: {
+        fontFamily: fontFamilies.sans,
+        fontSize: fontSize.base,
+        fontWeight: fontWeight.semibold,
+        color: colors.gray,
     },
     pickerContainer: {
         marginTop: spacing.sm,

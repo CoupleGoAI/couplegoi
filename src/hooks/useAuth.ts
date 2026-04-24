@@ -154,14 +154,14 @@ export function useAuth(): {
 
     /** Sign out — wipe auth store + onboarding store + pairing store + secure storage */
     const signOut = useCallback(async (): Promise<void> => {
-        setLoading(true);
         await authData.signOut();
         resetAuth();
         resetOnboarding();
         resetPairing();
         resetCoupleSetup();
-        setLoading(false);
-    }, [setLoading, resetAuth, resetOnboarding, resetPairing, resetCoupleSetup]);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        setInitialized(true);
+    }, [setInitialized, resetAuth, resetOnboarding, resetPairing, resetCoupleSetup]);
 
     return { initialize, signUp, signIn, signOut };
 }

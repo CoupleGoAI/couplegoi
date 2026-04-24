@@ -35,6 +35,7 @@ import {
     DateFieldRow,
     styles,
 } from '@screens/main/profile/ProfileFormComponents';
+import { useAuth } from '@hooks/useAuth';
 import { colors, gradients } from '@/theme/tokens';
 
 const MIN_AGE_YEARS = 13;
@@ -62,6 +63,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
     const insets = useSafeAreaInsets();
     const user = useAuthStore((s) => s.user);
     const { isSaving, isUploading, error, saveProfile, uploadAvatar } = useProfile();
+    const { signOut } = useAuth();
 
     const [name, setName] = useState(user?.name ?? '');
     const [birthDateValue, setBirthDateValue] = useState<Date | null>(parseDateStr(user?.birthDate));
@@ -248,6 +250,26 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                             <Text style={styles.memoryLabel}>What does the AI know about me?</Text>
                         </TouchableOpacity>
 
+                        <View style={styles.secondaryRow}>
+                            {hasCoupleId && (
+                                <TouchableOpacity
+                                    style={[styles.disconnectBtn, styles.secondaryBtn]}
+                                    activeOpacity={0.8}
+                                    onPress={() => navigation.navigate('DisconnectConfirm')}
+                                >
+                                    <Text style={styles.disconnectLabel}>Disconnect from partner</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            <TouchableOpacity
+                                style={[styles.logoutBtn, styles.secondaryBtn]}
+                                activeOpacity={0.8}
+                                onPress={() => { void signOut(); }}
+                            >
+                                <Text style={styles.logoutLabel}>Log out</Text>
+                            </TouchableOpacity>
+                        </View>
+
                         <TouchableOpacity
                             style={styles.memoryBtn}
                             activeOpacity={0.8}
@@ -258,16 +280,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                                 {isExporting ? 'Preparing export…' : 'Download my data'}
                             </Text>
                         </TouchableOpacity>
-
-                        {hasCoupleId && (
-                            <TouchableOpacity
-                                style={styles.disconnectBtn}
-                                activeOpacity={0.8}
-                                onPress={() => navigation.navigate('DisconnectConfirm')}
-                            >
-                                <Text style={styles.disconnectLabel}>Disconnect from partner</Text>
-                            </TouchableOpacity>
-                        )}
 
                         <TouchableOpacity
                             style={styles.deleteBtn}
