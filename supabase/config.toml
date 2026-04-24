@@ -88,3 +88,15 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/account-delete/deno.json"
 entrypoint = "./functions/account-delete/index.ts"
+
+[functions.data-export]
+enabled = true
+verify_jwt = false
+import_map = "./functions/data-export/deno.json"
+entrypoint = "./functions/data-export/index.ts"
+
+[functions.get-messages]
+enabled = true
+verify_jwt = false
+import_map = "./functions/get-messages/deno.json"
+entrypoint = "./functions/get-messages/index.ts"
