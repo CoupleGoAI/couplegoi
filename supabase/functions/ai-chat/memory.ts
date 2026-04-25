@@ -102,7 +102,7 @@ function buildPrompt(
     })
     .join("\n");
   const correctionsBlock = corrections.length > 0
-    ? `\n\nPENDING USER CORRECTIONS (apply these — the user wants to fix the memory):\n${corrections.map((c) => `- ${c.instruction}`).join("\n")}`
+    ? `\n\nPENDING USER CORRECTIONS (apply these — the user wants to fix the memory):\n${corrections.map((c) => `- ${redact(c.instruction).text}`).join("\n")}`
     : "";
   return `You maintain a short memory about the user (Partner A) of a relationship-advice app. Merge new insights from their recent turns into the existing memory. Keep durable facts (personality, values, recurring patterns, goals, fears, likes, dislikes, pain points, preferences, past experiences). Drop ephemeral details.
 

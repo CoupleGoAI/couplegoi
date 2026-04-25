@@ -63,8 +63,12 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid conversation_type" }, 400);
   }
 
-  const limit = Math.min(Number(params.limit ?? 30), 100);
-  const partnerId = typeof params.partner_id === "string" ? params.partner_id : null;
+  const rawLimit = Number(params.limit ?? 30);
+  const limit = Math.min(Number.isFinite(rawLimit) ? Math.max(1, Math.floor(rawLimit)) : 30, 100);
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const rawPartnerId = typeof params.partner_id === "string" ? params.partner_id : null;
+  const partnerId = rawPartnerId && UUID_RE.test(rawPartnerId) ? rawPartnerId : null;
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -82,11 +86,15 @@ Deno.serve(async (req) => {
     query = query.eq("user_id", userId);
   } else if (partnerId) {
     // Verify partner relationship before exposing their messages.
+    // Use a single .or() expression to check BOTH users belong to the same couple
+    // (prevents the second .or() from silently overwriting the first in PostgREST).
     const { data: couple } = await supabase
       .from("couples")
       .select("id")
-      .or(`partner1_id.eq.${userId},partner2_id.eq.${userId}`)
-      .or(`partner1_id.eq.${partnerId},partner2_id.eq.${partnerId}`)
+      .or(
+        `and(partner1_id.eq.${userId},partner2_id.eq.${partnerId}),` +
+        `and(partner1_id.eq.${partnerId},partner2_id.eq.${userId})`
+      )
       .eq("is_active", true)
       .maybeSingle();
 
