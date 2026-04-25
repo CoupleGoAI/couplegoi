@@ -27,8 +27,37 @@ This repo treats context as a scarce resource.
 
 ## Non-Negotiables
 
-- TypeScript strict mode. No `any`.
+- TypeScript strict mode. No `any`. No `@ts-ignore`. No `as unknown as`.
 - Functional components only.
 - Use path aliases, not deep relative imports.
 - Use MCP to inspect live Supabase state before schema or query changes.
 - Ship the smallest correct diff. No unrelated refactors.
+
+## Architecture — enforced boundaries
+
+Dependency direction: `UI (screens/components) → hooks → domain → data`
+
+- UI must **never** import from `src/data/` or call `supabase.*` directly.
+- Hooks orchestrate domain + data and expose results to UI.
+- No circular imports.
+
+## Supabase rules (MUST)
+
+- **Never** `supabase.functions.invoke()` — use plain `fetch()` with explicit `Authorization` and `apikey` headers.
+- `verify_jwt = false` in `supabase/config.toml` — project uses ES256.
+- Verify JWT in edge functions via `/auth/v1/user` REST call, never `client.auth.getUser()`.
+- **Never trust a client-supplied user ID.** Derive identity from the verified JWT only.
+- DB reads/writes: use `supabaseQuery(() => supabase.from(...))` from `src/data/apiClient.ts`.
+
+## Security & privacy (MUST — stop and flag if violated)
+
+- Secrets → `expo-secure-store` only. Never AsyncStorage, never MMKV for secrets.
+- Never `console.log` tokens, passwords, session data, or auth headers.
+- Validate all external input: API responses, route params, push payloads, deep link params.
+- User-facing error messages must be generic — no stack traces, internal IDs, or token fragments.
+- Wipe all sensitive state on logout: `store.reset()` + full secure storage clear.
+
+## After every implement or modify task
+
+Run the security-reviewer agent on all changed files before reporting the task complete.
+Return a `PASS / WARN / BLOCK` verdict with specific findings.
