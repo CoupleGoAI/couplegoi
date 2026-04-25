@@ -8,6 +8,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
+    Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,7 +16,6 @@ import { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reani
 import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import GradientButton from '@components/ui/GradientButton';
-import { Share } from 'react-native';
 import { useProfile } from '@hooks/useProfile';
 import { useAuthStore } from '@store/authStore';
 import { exportData } from '@data/profileApi';
@@ -109,16 +109,43 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsEditing: true,
-                                    <View style={styles.secondaryRow}>
-                                        {hasCoupleId && (
-                                            <TouchableOpacity
-                                                style={[styles.disconnectBtn, styles.secondaryBtn]}
-                                                activeOpacity={0.8}
-                                                onPress={() => navigation.navigate('DisconnectConfirm')}
-                                            >
-                                                <Text style={styles.disconnectLabel}>Disconnect from partner</Text>
-                                            </TouchableOpacity>
-                                        )}
+            aspect: [1, 1],
+            quality: 0.8,
+        });
+        if (!result.canceled && result.assets[0]) {
+            await uploadAvatar(result.assets[0].uri);
+        }
+    }, [uploadAvatar]);
+
+    const handleSave = useCallback(async (): Promise<void> => {
+        const nameErr = validateName(name);
+        if (nameErr) {
+            setValidationError(nameErr);
+            return;
+        }
+
+        const birthErr = validateBirthDate(birthDateStr);
+        if (birthErr) {
+            setValidationError(birthErr);
+            return;
+        }
+
+        const datingErr = validateDatingStartDate(datingDateStr);
+        if (datingErr) {
+            setValidationError(datingErr);
+            return;
+        }
+
+        const crossErr = validateDatingAfterBirth(datingDateStr, birthDateStr);
+        if (crossErr) {
+            setValidationError(crossErr);
+            return;
+        }
+
+        setValidationError(null);
+
+        const success = await saveProfile({
+            name: name.trim(),
             birthDate: birthDateStr || null,
             helpFocus: helpFocus || null,
             datingStartDate: datingDateStr || null,
@@ -126,27 +153,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
 
         if (success) navigation.goBack();
     }, [name, birthDateStr, helpFocus, datingDateStr, saveProfile, navigation]);
-    const [isExporting, setIsExporting] = useState(false);
-
-                                    <TouchableOpacity
-                                        style={styles.memoryBtn}
-                                        activeOpacity={0.8}
-                                        disabled={isExporting}
-                                        onPress={() => { void handleExport(); }}
-                                    >
-                                        <Text style={styles.memoryLabel}>
-                                            {isExporting ? 'Preparing export…' : 'Download my data'}
-                                        </Text>
-                                    </TouchableOpacity>
-    const handleExport = useCallback(async (): Promise<void> => {
-        setIsExporting(true);
-        try {
-            const result = await exportData();
-            if (!result.ok) return;
-            await Share.share({ message: result.data, title: 'Your CoupleGoAI data' });
-        } finally {
-            setIsExporting(false);
-    }, []);
 
     const [isExporting, setIsExporting] = useState(false);
 
@@ -175,7 +181,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                 <HeaderRow onBack={() => navigation.goBack()} />
 
                 <ScrollView
-
+                    contentContainerStyle={[
+                        styles.scroll,
                         { flexGrow: 1, paddingBottom: bottomScrollPadding },
                     ]}
                     showsVerticalScrollIndicator={false}
@@ -186,6 +193,22 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                         avatarUrl={user?.avatarUrl ?? null}
                         isUploading={isUploading}
                         animStyle={avatarAnimStyle}
+                        onPress={() => {
+                            void handleAvatarPress();
+                        }}
+                    />
+
+                    <FormSection delay={0} label="Name">
+                        <TextInput
+                            value={name}
+                            onChangeText={setName}
+                            placeholder="Your name"
+                            placeholderTextColor={colors.gray}
+                            maxLength={60}
+                            style={styles.textInput}
+                        />
+                    </FormSection>
+
                     <FormSection delay={100} label="Birth Date">
                         <DateFieldRow
                             label="Birth Date"
@@ -193,18 +216,9 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                             displayStr={birthDateStr}
                             showPicker={showBirthPicker}
                             onPress={() => setShowBirthPicker((p) => !p)}
+                            onChange={handleBirthDateChange}
                             maximumDate={getMaxBirthDate()}
-
-                        <TouchableOpacity
-                            style={styles.memoryBtn}
-                            activeOpacity={0.8}
-                            disabled={isExporting}
-                            onPress={() => { void handleExport(); }}
-                        >
-                            <Text style={styles.memoryLabel}>
-                                {isExporting ? 'Preparing export…' : 'Download my data'}
-                            </Text>
-                        </TouchableOpacity>
+                        />
                     </FormSection>
 
                     <FormSection delay={200} label="Help Focus">
@@ -213,6 +227,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                     </FormSection>
 
                     {hasCoupleId && (
+                        <FormSection delay={300} label="Dating Start Date">
                             <DateFieldRow
                                 label="Dating Start Date"
                                 value={datingDateValue}
@@ -227,14 +242,14 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                         </FormSection>
                     )}
 
-                    {displayError != null && (
-                        <ErrorBanner message={displayError} />
-                    )}
+                    {displayError != null && <ErrorBanner message={displayError} />}
 
                     <View style={styles.actions}>
                         <GradientButton
                             label="Save changes"
-                            onPress={() => { void handleSave(); }}
+                            onPress={() => {
+                                void handleSave();
+                            }}
                             size="lg"
                             fullWidth
                             loading={isSaving}
@@ -262,7 +277,9 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                             <TouchableOpacity
                                 style={[styles.logoutBtn, styles.secondaryBtn]}
                                 activeOpacity={0.8}
-                                onPress={() => { void signOut(); }}
+                                onPress={() => {
+                                    void signOut();
+                                }}
                             >
                                 <Text style={styles.logoutLabel}>Log out</Text>
                             </TouchableOpacity>
@@ -272,7 +289,9 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
                             style={styles.memoryBtn}
                             activeOpacity={0.8}
                             disabled={isExporting}
-                            onPress={() => { void handleExport(); }}
+                            onPress={() => {
+                                void handleExport();
+                            }}
                         >
                             <Text style={styles.memoryLabel}>
                                 {isExporting ? 'Preparing export…' : 'Download my data'}
