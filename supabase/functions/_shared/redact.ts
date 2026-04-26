@@ -146,6 +146,7 @@ const NON_NAME_WORDS: ReadonlyArray<string> = [
   "hospital", "clinic", "pharmacy", "airport", "station", "stadium",
   "parliament", "congress", "senate", "court", "embassy",
 ];
+const NON_NAME_WORDS_SET = new Set(NON_NAME_WORDS);
 
 const REDACT_PATTERNS: Array<{ re: RegExp; replacement: string }> = [
   // emails
@@ -187,14 +188,16 @@ export function redact(
   // Mask third-party personal names: mid-sentence Capitalized words that are
   // not in the exclusion set (days, months, places, brands, tech terms, etc.)
   // and not in the caller-supplied knownNames allowlist.
-  const allowed = new Set([
-    ...knownNames
+  const allowedNames = new Set(
+    knownNames
       .filter((n): n is string => typeof n === "string" && n.length > 0)
       .map((n) => n.toLowerCase()),
-    ...NON_NAME_WORDS,
-  ]);
+  );
   out = out.replace(/(?<=\S\s)([A-Z][a-z]{2,})/g, (match) => {
-    if (allowed.has(match.toLowerCase())) return match;
+    const normalized = match.toLowerCase();
+    if (NON_NAME_WORDS_SET.has(normalized) || allowedNames.has(normalized)) {
+      return match;
+    }
     dropped = true;
     return "someone";
   });

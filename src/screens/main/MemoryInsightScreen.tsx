@@ -66,7 +66,7 @@ export default function MemoryInsightScreen({ navigation }: MemoryInsightScreenP
         if (!activeCorrection || !correctionText.trim() || !userId) return;
         setIsSubmitting(true);
         try {
-            await supabase.from('memory_corrections').insert({
+            const { error: insertError } = await supabase.from('memory_corrections').insert({
                 scope: 'user',
                 owner_id: userId,
                 target_kind: activeCorrection.kind,
@@ -74,6 +74,9 @@ export default function MemoryInsightScreen({ navigation }: MemoryInsightScreenP
                 instruction: correctionText.trim(),
                 created_by: userId,
             });
+            if (insertError) {
+                throw insertError;
+            }
             setCorrectionText('');
             setActiveCorrection(null);
             Alert.alert('Saved', 'Correction saved. The AI will apply it on your next memory update.');

@@ -69,15 +69,15 @@ export default function AccountDeleteScreen({
         hasDeleted.current = true;
         setIsDeleting(true);
         setError(null);
-        try {
-            await invokeEdgeFunction('account-delete', {});
-            await supabase.auth.signOut();
-            navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
-        } catch {
+        const result = await invokeEdgeFunction('account-delete', {});
+        if (!result.ok) {
             hasDeleted.current = false;
             setIsDeleting(false);
-            setError('Failed to delete account. Please try again.');
+            setError(result.error);
+            return;
         }
+        await supabase.auth.signOut();
+        navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
     }, [isDeleting, navigation]);
 
     const countdownActive = seconds > 0;

@@ -19,6 +19,7 @@ yarn-error.*
 # env
 .env*
 .env.*
+supabase/.temp/cli-latest
 
 # EAS
 .eas/

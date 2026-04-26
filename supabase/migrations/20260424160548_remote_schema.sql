@@ -8,53 +8,53 @@ create type "public"."game_session_status" as enum ('waiting', 'active', 'comple
 
 create type "public"."game_type" as enum ('would_you_rather', 'who_is_more_likely', 'this_or_that', 'never_have_i_ever');
 
-drop policy "Answers visible to session members (own always, others after re" on "public"."game_answers";
+drop policy if exists "Answers visible to session members (own always, others after re" on "public"."game_answers";
 
-drop policy "Couple members can read invitations" on "public"."game_invitations";
+drop policy if exists "Couple members can read invitations" on "public"."game_invitations";
 
-drop policy "Session members can read rounds" on "public"."game_rounds";
+drop policy if exists "Session members can read rounds" on "public"."game_rounds";
 
-drop policy "Session members can read players" on "public"."game_session_players";
+drop policy if exists "Session members can read players" on "public"."game_session_players";
 
-drop policy "Couple members can read results" on "public"."game_session_results";
+drop policy if exists "Couple members can read results" on "public"."game_session_results";
 
-drop policy "Couple members can read sessions" on "public"."game_sessions";
+drop policy if exists "Couple members can read sessions" on "public"."game_sessions";
 
-alter table "public"."couple_memory" drop constraint "couple_memory_updated_by_check";
+alter table "public"."couple_memory" drop constraint if exists "couple_memory_updated_by_check";
 
-alter table "public"."game_invitations" drop constraint "game_invitations_category_key_check";
+alter table "public"."game_invitations" drop constraint if exists "game_invitations_category_key_check";
 
-alter table "public"."game_invitations" drop constraint "game_invitations_game_type_check";
+alter table "public"."game_invitations" drop constraint if exists "game_invitations_game_type_check";
 
-alter table "public"."game_invitations" drop constraint "game_invitations_session_id_fkey";
+alter table "public"."game_invitations" drop constraint if exists "game_invitations_session_id_fkey";
 
-alter table "public"."game_invitations" drop constraint "game_invitations_status_check";
+alter table "public"."game_invitations" drop constraint if exists "game_invitations_status_check";
 
-alter table "public"."game_rounds" drop constraint "game_rounds_status_check";
+alter table "public"."game_rounds" drop constraint if exists "game_rounds_status_check";
 
-alter table "public"."game_session_players" drop constraint "game_session_players_session_id_user_id_key";
+alter table "public"."game_session_players" drop constraint if exists "game_session_players_session_id_user_id_key";
 
-alter table "public"."game_session_players" drop constraint "game_session_players_state_check";
+alter table "public"."game_session_players" drop constraint if exists "game_session_players_state_check";
 
-alter table "public"."game_session_results" drop constraint "game_session_results_session_id_key";
+alter table "public"."game_session_results" drop constraint if exists "game_session_results_session_id_key";
 
-alter table "public"."game_sessions" drop constraint "game_sessions_status_check";
+alter table "public"."game_sessions" drop constraint if exists "game_sessions_status_check";
 
-alter table "public"."user_memory" drop constraint "user_memory_updated_by_check";
+alter table "public"."user_memory" drop constraint if exists "user_memory_updated_by_check";
 
-alter table "public"."game_answers" drop constraint "game_answers_user_id_fkey";
+alter table "public"."game_answers" drop constraint if exists "game_answers_user_id_fkey";
 
-alter table "public"."game_invitations" drop constraint "game_invitations_from_user_id_fkey";
+alter table "public"."game_invitations" drop constraint if exists "game_invitations_from_user_id_fkey";
 
-alter table "public"."game_invitations" drop constraint "game_invitations_to_user_id_fkey";
+alter table "public"."game_invitations" drop constraint if exists "game_invitations_to_user_id_fkey";
 
-alter table "public"."game_session_players" drop constraint "game_session_players_user_id_fkey";
+alter table "public"."game_session_players" drop constraint if exists "game_session_players_user_id_fkey";
 
-alter table "public"."game_sessions" drop constraint "game_sessions_created_by_fkey";
+alter table "public"."game_sessions" drop constraint if exists "game_sessions_created_by_fkey";
 
-alter table "public"."game_sessions" drop constraint "game_sessions_invitation_id_fkey";
+alter table "public"."game_sessions" drop constraint if exists "game_sessions_invitation_id_fkey";
 
-alter table "public"."memory_corrections" drop constraint "memory_corrections_instruction_check";
+alter table "public"."memory_corrections" drop constraint if exists "memory_corrections_instruction_check";
 
 drop function if exists "public"."_is_member_of_session_couple"(p_session_id uuid);
 
@@ -66,9 +66,9 @@ drop function if exists "public"."_wipe_couple_chat_for_user"(p_uid uuid);
 
 drop function if exists "public"."delete_user_data"(p_uid uuid);
 
-alter table "public"."game_session_players" drop constraint "game_session_players_pkey";
+alter table "public"."game_session_players" drop constraint if exists "game_session_players_pkey";
 
-alter table "public"."game_session_results" drop constraint "game_session_results_pkey";
+alter table "public"."game_session_results" drop constraint if exists "game_session_results_pkey";
 
 drop index if exists "public"."game_session_players_session_id_user_id_key";
 
@@ -590,4 +590,3 @@ grant truncate on table "public"."user_memory" to "authenticated";
 grant update on table "public"."user_memory" to "authenticated";
 
 drop trigger if exists "on_auth_user_deleted" on "auth"."users";
-

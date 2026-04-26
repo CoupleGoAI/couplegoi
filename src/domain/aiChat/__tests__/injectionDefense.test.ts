@@ -5,7 +5,7 @@
 const INJECTION_PATTERNS = [
   /ignore\s+(all\s+)?previous\s+instructions/i,
   /forget\s+(everything|all)\s+(above|previous)/i,
-  /you\s+are\s+now\s+(a\s+)?(?!partner)/i,
+  /you\s+are\s+now\s+(?!my\s+partner\b)(?!(?:a\s+)?partner\b)(?:an?\s+)?/i,
   /\[system\]/i,
   /\}\}\s*\{\{/,
   /<\|.*?\|>/,

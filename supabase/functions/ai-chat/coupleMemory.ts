@@ -151,9 +151,6 @@ export interface UpdateCoupleMemoryArgs {
   coupleId: string;
   existingMemory: CoupleMemoryRow | null;
   rawTurns: Array<{ speaker: "A" | "B" | "assistant"; text: string }>;
-  // Partner names are only used as the allowlist for the third-party-name
-  // masker inside the shared redactor. They NEVER leave this function —
-  // the prompt itself sees only role tokens.
   nameA: string;
   nameB: string;
 }
@@ -171,11 +168,13 @@ export async function updateCoupleMemory(
     nameA,
     nameB,
   } = args;
+  void nameA;
+  void nameB;
   try {
     // Step 1: redact every turn before anything leaves Deno.
     const redactedTurns: RedactedTurn[] = rawTurns.map((t) => ({
       speaker: t.speaker,
-      text: redact(t.text, [nameA, nameB]).text,
+      text: redact(t.text).text,
     }));
 
     // Step 2: fetch pending couple corrections.
@@ -190,7 +189,9 @@ export async function updateCoupleMemory(
     const corrections = (correctionRows ?? []) as CoupleCorrectionRow[];
 
     const correctionsBlock = corrections.length > 0
-      ? `\n\nPENDING CORRECTIONS (apply these — both partners want to fix the memory):\n${corrections.map((c) => `- ${c.instruction}`).join("\n")}`
+      ? `\n\nPENDING CORRECTIONS (apply these — both partners want to fix the memory):\n${
+        corrections.map((c) => `- ${redact(c.instruction).text}`).join("\n")
+      }`
       : "";
 
     // Step 3: merge via provider.

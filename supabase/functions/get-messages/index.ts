@@ -68,6 +68,9 @@ Deno.serve(async (req) => {
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const rawPartnerId = typeof params.partner_id === "string" ? params.partner_id : null;
+  if (rawPartnerId !== null && !UUID_RE.test(rawPartnerId)) {
+    return json({ error: "Invalid partner_id" }, 400);
+  }
   const partnerId = rawPartnerId && UUID_RE.test(rawPartnerId) ? rawPartnerId : null;
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -93,7 +96,7 @@ Deno.serve(async (req) => {
       .select("id")
       .or(
         `and(partner1_id.eq.${userId},partner2_id.eq.${partnerId}),` +
-        `and(partner1_id.eq.${partnerId},partner2_id.eq.${userId})`
+        `and(partner1_id.eq.${partnerId},partner2_id.eq.${userId})`,
       )
       .eq("is_active", true)
       .maybeSingle();

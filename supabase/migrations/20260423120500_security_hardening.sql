@@ -10,6 +10,7 @@
 -- ── 1. Fix RLS initplan on game tables ──────────────────────────────────────
 
 DROP POLICY IF EXISTS "Session participants can view answers" ON public.game_answers;
+DROP POLICY IF EXISTS "Answers visible to session members (own always, others after reveal)" ON public.game_answers;
 CREATE POLICY "Session participants can view answers" ON public.game_answers
   FOR SELECT USING (
     session_id IN (
@@ -20,6 +21,7 @@ CREATE POLICY "Session participants can view answers" ON public.game_answers
   );
 
 DROP POLICY IF EXISTS "Session participants can view rounds" ON public.game_rounds;
+DROP POLICY IF EXISTS "Session members can read rounds" ON public.game_rounds;
 CREATE POLICY "Session participants can view rounds" ON public.game_rounds
   FOR SELECT USING (
     session_id IN (
@@ -30,6 +32,7 @@ CREATE POLICY "Session participants can view rounds" ON public.game_rounds
   );
 
 DROP POLICY IF EXISTS "Session participants can view players" ON public.game_session_players;
+DROP POLICY IF EXISTS "Session members can read players" ON public.game_session_players;
 CREATE POLICY "Session participants can view players" ON public.game_session_players
   FOR SELECT USING (
     session_id IN (
@@ -40,6 +43,7 @@ CREATE POLICY "Session participants can view players" ON public.game_session_pla
   );
 
 DROP POLICY IF EXISTS "Couple members can view their sessions" ON public.game_sessions;
+DROP POLICY IF EXISTS "Couple members can read sessions" ON public.game_sessions;
 CREATE POLICY "Couple members can view their sessions" ON public.game_sessions
   FOR SELECT USING (
     couple_id IN (
@@ -49,6 +53,7 @@ CREATE POLICY "Couple members can view their sessions" ON public.game_sessions
   );
 
 DROP POLICY IF EXISTS "Couple members can view their invitations" ON public.game_invitations;
+DROP POLICY IF EXISTS "Couple members can read invitations" ON public.game_invitations;
 CREATE POLICY "Couple members can view their invitations" ON public.game_invitations
   FOR SELECT USING (
     couple_id IN (
@@ -58,6 +63,7 @@ CREATE POLICY "Couple members can view their invitations" ON public.game_invitat
   );
 
 DROP POLICY IF EXISTS "Couple members can view their results" ON public.game_session_results;
+DROP POLICY IF EXISTS "Couple members can read results" ON public.game_session_results;
 CREATE POLICY "Couple members can view their results" ON public.game_session_results
   FOR SELECT USING (
     couple_id IN (

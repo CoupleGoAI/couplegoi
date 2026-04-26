@@ -42,8 +42,50 @@ ALTER TABLE public.memory_corrections ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own corrections"
   ON public.memory_corrections FOR SELECT
-  USING ((select auth.uid())::text = created_by::text);
+  USING (
+    created_by = (select auth.uid())
+    AND (
+      (
+        scope = 'user'
+        AND owner_id = (select auth.uid())::text
+      )
+      OR (
+        scope = 'couple'
+        AND EXISTS (
+          SELECT 1
+          FROM public.couples c
+          WHERE c.id::text = owner_id
+            AND c.is_active = true
+            AND (
+              c.partner1_id = (select auth.uid())
+              OR c.partner2_id = (select auth.uid())
+            )
+        )
+      )
+    )
+  );
 
 CREATE POLICY "Users can insert own corrections"
   ON public.memory_corrections FOR INSERT
-  WITH CHECK ((select auth.uid())::text = created_by::text);
+  WITH CHECK (
+    created_by = (select auth.uid())
+    AND (
+      (
+        scope = 'user'
+        AND owner_id = (select auth.uid())::text
+      )
+      OR (
+        scope = 'couple'
+        AND EXISTS (
+          SELECT 1
+          FROM public.couples c
+          WHERE c.id::text = owner_id
+            AND c.is_active = true
+            AND (
+              c.partner1_id = (select auth.uid())
+              OR c.partner2_id = (select auth.uid())
+            )
+        )
+      )
+    )
+  );
