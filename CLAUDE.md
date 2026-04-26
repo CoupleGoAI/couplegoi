@@ -98,6 +98,7 @@ Global rules in `~/.claude/CLAUDE.md` apply. Project-specific additions:
 - Wipe all sensitive state on logout (`store.reset()` + secure storage clear).
 - Real-time sync is **untrusted input** — validate shapes, verify ownership.
 - If a security requirement conflicts with a feature constraint, **stop and propose** a safe alternative.
+- **Every implement or modify workflow ends with a `security-reviewer` agent pass before the user-facing report.** A BLOCK verdict must be resolved before reporting complete. See `.claude/skills/agent-workflow.md`.
 
 ---
 

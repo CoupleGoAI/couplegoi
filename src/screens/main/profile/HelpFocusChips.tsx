@@ -9,16 +9,22 @@ import {
     fontWeight,
 } from '@/theme/tokens';
 
-const HELP_FOCUS_OPTIONS = [
-    'Communication',
-    'Trust',
-    'Quality Time',
-    'Intimacy',
-    'Growth',
-    'Fun',
-] as const;
+interface HelpOption {
+    label: string;
+    value: string;
+}
 
-export type HelpFocusOption = (typeof HELP_FOCUS_OPTIONS)[number];
+// Values must match what HelpTypeChips saves to the DB during onboarding
+const HELP_FOCUS_OPTIONS: HelpOption[] = [
+    { label: 'Communication', value: 'communication' },
+    { label: 'Conflict', value: 'conflict' },
+    { label: 'Trust', value: 'trust' },
+    { label: 'Emotional Connection', value: 'emotional_connection' },
+    { label: 'Intimacy', value: 'intimacy' },
+    { label: 'Other', value: 'other' },
+];
+
+export type HelpFocusOption = (typeof HELP_FOCUS_OPTIONS)[number]['value'];
 
 interface HelpFocusChipsProps {
     selected: string;
@@ -33,16 +39,16 @@ function HelpFocusChipsInner({ selected, onSelect }: HelpFocusChipsProps): React
             contentContainerStyle={styles.container}
         >
             {HELP_FOCUS_OPTIONS.map((option) => {
-                const isSelected = selected === option;
+                const isSelected = selected === option.value;
                 return (
                     <TouchableOpacity
-                        key={option}
+                        key={option.value}
                         activeOpacity={0.8}
-                        onPress={() => onSelect(isSelected ? '' : option)}
+                        onPress={() => onSelect(isSelected ? '' : option.value)}
                         style={[styles.chip, isSelected && styles.chipSelected]}
                     >
                         <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                            {option}
+                            {option.label}
                         </Text>
                     </TouchableOpacity>
                 );

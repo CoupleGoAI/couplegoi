@@ -15,6 +15,24 @@
             "command": "python3 .claude/hooks/strip-output.py"
           }
         ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/security-check.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/security-check.py"
+          }
+        ]
       }
     ]
   }
