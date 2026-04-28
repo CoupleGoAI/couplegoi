@@ -161,6 +161,27 @@ Supabase remembers its Docker containers, so subsequent starts are fast:
 
 ---
 
+## Database migrations & seed data
+
+### Apply migrations + seed
+
+```bash
+supabase db reset
+```
+
+Wipes the local DB, reapplies all migrations, and runs `supabase/seed.sql`. Use this whenever you pull new migrations or want a clean state.
+
+### Seed accounts
+
+| Email | Password |
+|---|---|
+| `alex@seed.local` | `password123` |
+| `jordan@seed.local` | `password123` |
+
+Both are already linked as a couple with chat messages and a completed game session.
+
+---
+
 ## npm scripts reference
 
 | Command | What it does |
@@ -170,3 +191,22 @@ Supabase remembers its Docker containers, so subsequent starts are fast:
 | `npm run prod:groq` | Prod with Groq as AI provider |
 | `npm run prod:claude` | Prod with Claude as AI provider |
 | `node scripts/help.mjs` | Print all available commands |
+
+---
+ Split terminals:
+
+  Terminal 1 (WSL) — keep Supabase running here:
+  supabase start
+  supabase functions serve --env-file supabase/functions/.env
+
+  Terminal 2 (Windows CMD) — run Expo here:
+  cd C:\Users\jacks\Desktop\couplegoai\couplegoai
+  npx expo start
+
+  One thing to fix first — your .env.local will have 127.0.0.1 as the Supabase URL, but your phone can't reach that. Before starting Expo, edit .env.local and replace 127.0.0.1 with your Windows LAN IP:
+
+  EXPO_PUBLIC_SUPABASE_URL=http://192.168.x.x:54321
+
+  Find your LAN IP by running ipconfig in CMD and looking for the IPv4 address under your Wi-Fi or Ethernet adapter.
+
+  Then scan the QR code in Expo Go and it'll work over LAN, no tunnel.
