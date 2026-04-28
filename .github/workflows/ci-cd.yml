@@ -99,7 +99,7 @@ jobs:
 
   release:
     needs: [ deploy-supabase ]
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       JAVA_VERSION: '17'
@@ -216,7 +216,7 @@ jobs:
         cp android/app/build/outputs/apk/release/app-release.apk "CoupleGoAI-${{ steps.prepare.outputs.version }}.apk"
 
     - name: Push version bump and tag
-      if: steps.prepare.outputs.should_release == 'true'
+      if: steps.prepare.outputs.should_release == 'true' && github.ref == 'refs/heads/main'
       run: |
         git push origin HEAD:main
 
@@ -228,7 +228,7 @@ jobs:
         fi
 
     - name: Create GitHub release with APK
-      if: steps.prepare.outputs.should_release == 'true'
+      if: steps.prepare.outputs.should_release == 'true' && github.ref == 'refs/heads/main'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
