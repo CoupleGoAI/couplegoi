@@ -8,6 +8,15 @@ on:
     branches:
     - main
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: Android release bump type
+        required: true
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
 
 
 permissions:
@@ -109,6 +118,8 @@ jobs:
 
     - name: Determine Android release
       id: prepare
+      env:
+        RELEASE_TYPE_INPUT: ${{ github.event.inputs.release_type }}
       run: |
         # Scan all non-merge commits in this push for the release token.
         # Handles merge commits where head_commit is "Merge branch …"
@@ -123,9 +134,9 @@ jobs:
         export COMMIT_MESSAGE="$MESSAGES"
         npm run release:android:prepare
 
-    - name: Stop when commit does not request a release
+    - name: Stop when release was not requested
       if: steps.prepare.outputs.should_release != 'true'
-      run: echo "No Android release token found in the latest commit message."
+      run: echo "No Android release request was found. Push a release token or provide workflow_dispatch input."
 
     - name: Commit version bump
       if: steps.prepare.outputs.should_release == 'true'

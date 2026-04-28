@@ -2,9 +2,13 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const COMMIT_MESSAGE = process.env.COMMIT_MESSAGE ?? '';
+const RELEASE_TYPE_INPUT = process.env.RELEASE_TYPE_INPUT ?? '';
 const outputPath = process.env.GITHUB_OUTPUT;
 
+const releaseTypeFromInput = RELEASE_TYPE_INPUT.match(/^(patch|minor|major)$/i);
+
 const explicitReleaseMatch =
+  releaseTypeFromInput ??
   COMMIT_MESSAGE.match(/\[release:android:(patch|minor|major)\]/i) ??
   COMMIT_MESSAGE.match(/release\(android\):\s*(patch|minor|major)/i);
 
