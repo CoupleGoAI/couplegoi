@@ -134,10 +134,12 @@ jobs:
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git add app.json package.json package-lock.json
         git commit -m "${{ steps.prepare.outputs.release_commit_message }}"
-        git pull --rebase origin main || true
-        git tag -f "${{ steps.prepare.outputs.tag }}"
-        git push origin HEAD:main
-        git push origin "${{ steps.prepare.outputs.tag }}"
+
+    - name: Rebase version bump onto latest main
+      if: steps.prepare.outputs.should_release == 'true'
+      run: |
+        git fetch origin main --tags
+        git rebase origin/main
 
     - name: Install dependencies
       if: steps.prepare.outputs.should_release == 'true'
@@ -201,6 +203,18 @@ jobs:
       if: steps.prepare.outputs.should_release == 'true'
       run: |
         cp android/app/build/outputs/apk/release/app-release.apk "CoupleGoAI-${{ steps.prepare.outputs.version }}.apk"
+
+    - name: Push version bump and tag
+      if: steps.prepare.outputs.should_release == 'true'
+      run: |
+        git push origin HEAD:main
+
+        if git ls-remote --exit-code --tags origin "refs/tags/${{ steps.prepare.outputs.tag }}" >/dev/null 2>&1; then
+          echo "Tag ${{ steps.prepare.outputs.tag }} already exists on origin."
+        else
+          git tag "${{ steps.prepare.outputs.tag }}"
+          git push origin "refs/tags/${{ steps.prepare.outputs.tag }}"
+        fi
 
     - name: Create GitHub release with APK
       if: steps.prepare.outputs.should_release == 'true'
