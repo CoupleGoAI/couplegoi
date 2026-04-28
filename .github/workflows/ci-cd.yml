@@ -1,7 +1,10 @@
-name: Android Release
+name: CI/CD Pipeline
 
 on:
   push:
+    branches:
+    - main
+  pull_request:
     branches:
     - main
   workflow_dispatch:
@@ -15,21 +18,80 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test-node:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 22
+        cache: npm
+    - run: npm ci
+    - run: npm test
+
+  test-sql:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: supabase/setup-cli@v1
+    - run: supabase start
+    - run: supabase db test
+
+  deploy-supabase:
+    needs: [ test-node, test-sql ]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: supabase/setup-cli@v1
+    - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+      env:
+        SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    - run: |
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          supabase db push
+        else
+          supabase db push --dry-run
+        fi
+      env:
+        SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    - run: supabase functions deploy --all
+      env:
+        SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    - name: Upload prompt templates
+      run: |
+        for file in supabase/prompts/*.txt; do
+          filename=$(basename "$file")
+          curl -sf -X POST \
+            "${SUPABASE_URL}/storage/v1/object/prompts/${filename}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: text/plain" \
+            -H "x-upsert: true" \
+            --data-binary "@${file}"
+        done
+      env:
+        SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
   release:
+    needs: [ deploy-supabase ]
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       JAVA_VERSION: '17'
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
-        node-version: 20
+        node-version: 22
         cache: npm
 
     - name: Determine Android release

@@ -49,6 +49,12 @@ function makeTestKey(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
+function mutateBase64Char(value: string): string {
+  const firstChar = value[0];
+  const replacement = firstChar === 'A' ? 'B' : 'A';
+  return `${replacement}${value.slice(1)}`;
+}
+
 describe('crypto – encrypt / decrypt', () => {
   const key = makeTestKey();
 
@@ -78,10 +84,10 @@ describe('crypto – encrypt / decrypt', () => {
 
   it('throws on tampered ciphertext', async () => {
     const wire = await encrypt('secret', key);
-    // Flip a character in the ciphertext portion
+    // Ensure the ciphertext actually changes before attempting to decrypt it.
     const parts = wire.split(':');
     const lastPart = parts[parts.length - 1];
-    const tampered = parts.slice(0, -1).join(':') + ':' + 'A' + lastPart.slice(1);
+    const tampered = `${parts.slice(0, -1).join(':')}:${mutateBase64Char(lastPart)}`;
     await expect(decrypt(tampered, key)).rejects.toThrow();
   });
 
