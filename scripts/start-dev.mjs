@@ -9,7 +9,7 @@
 //   3. Expo starts with extra CLI args forwarded (e.g. --android).
 
 import { spawnSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 function run(command, args, opts = {}) {
@@ -70,6 +70,41 @@ function writeEnvLocal(values) {
   writeFileSync(target, lines.join('\n'));
 }
 
+async function seedPrompts(apiUrl, serviceRoleKey) {
+  const headers = {
+    apikey: serviceRoleKey,
+    Authorization: `Bearer ${serviceRoleKey}`,
+  };
+  const storageBase = `${apiUrl}/storage/v1`;
+
+  // Create bucket if it doesn't exist
+  await fetch(`${storageBase}/bucket`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'prompts', name: 'prompts', public: true }),
+  });
+
+  const promptsDir = resolve(process.cwd(), 'supabase/prompts');
+  const files = ['chat_solo.txt', 'chat_couple.txt'];
+
+  for (const file of files) {
+    const check = await fetch(`${storageBase}/object/prompts/${file}`, { headers });
+    if (check.ok) continue;
+
+    const content = readFileSync(resolve(promptsDir, file));
+    const res = await fetch(`${storageBase}/object/prompts/${file}`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'text/plain' },
+      body: content,
+    });
+    if (res.ok) {
+      console.log(`[start:dev] uploaded prompts/${file}`);
+    } else {
+      console.warn(`[start:dev] failed to upload prompts/${file}:`, await res.text());
+    }
+  }
+}
+
 if (!isSupabaseRunning()) {
   console.log('[start:dev] local Supabase is not running. Starting it...');
   const startCode = run('supabase', ['start']);
@@ -91,6 +126,8 @@ if (!values.API_URL || !values.ANON_KEY) {
 
 writeEnvLocal(values);
 console.log('[start:dev] wrote .env.local pointing at local Supabase.');
+
+await seedPrompts(values.API_URL, values.SERVICE_ROLE_KEY);
 
 const forwardedArgs = process.argv.slice(2);
 const expoCode = run('expo', ['start', ...forwardedArgs]);

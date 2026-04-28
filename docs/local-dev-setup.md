@@ -39,13 +39,7 @@ ALLOWED_ORIGIN=*
 
 `.env.local` is auto-generated in step 5 — no action needed.
 
-### 4. Upload prompt templates (first time only)
-
-Start Supabase, then open the local dashboard at `http://127.0.0.1:54323`:
-- Go to **Storage** → **New bucket** → name it `prompts` → enable **Public**
-- Upload `supabase/prompts/chat_solo.txt` and `supabase/prompts/chat_couple.txt`
-
-### 5. Start everything
+### 4. Start everything
 
 ```bash
 npm run dev
@@ -54,9 +48,10 @@ npm run dev
 This automatically:
 - Starts local Supabase if it isn't running
 - Writes `.env.local` pointing at your local instance
+- Creates the `prompts` Storage bucket and uploads prompt templates if missing
 - Starts Expo
 
-### 6. Start edge functions with secrets (separate terminal)
+### 5. Start edge functions with secrets (separate terminal)
 
 ```bash
 supabase functions serve --env-file supabase/functions/.env
@@ -124,13 +119,7 @@ The start script writes `127.0.0.1` as the Supabase URL, but your phone can't re
 EXPO_PUBLIC_SUPABASE_URL=http://192.168.1.123:54321
 ```
 
-### 8. Upload prompt templates (first time only)
-
-Open `http://127.0.0.1:54323` in your browser:
-- Go to **Storage** → **New bucket** → name it `prompts` → enable **Public**
-- Upload `supabase/prompts/chat_solo.txt` and `supabase/prompts/chat_couple.txt`
-
-### 9. Start Expo with tunnel
+### 8. Start Expo with tunnel
 
 WSL can't use LAN mode — tunnel is required:
 
@@ -140,7 +129,7 @@ npx expo start --tunnel
 
 Do NOT use `npm run dev` here — it will overwrite `.env.local` and put `127.0.0.1` back.
 
-### 10. Start edge functions with secrets (separate terminal)
+### 9. Start edge functions with secrets (separate terminal)
 
 ```bash
 supabase functions serve --env-file supabase/functions/.env
@@ -169,7 +158,7 @@ Supabase remembers its Docker containers, so subsequent starts are fast:
 supabase db reset
 ```
 
-Wipes the local DB, reapplies all migrations, and runs `supabase/seed.sql`. Use this whenever you pull new migrations or want a clean state.
+Wipes the local DB, reapplies all migrations, and runs `supabase/seed.sql`. Use this whenever you pull new migrations or want a clean state. After a reset, run `npm run dev` to re-upload the prompt templates automatically.
 
 ### Seed accounts
 
@@ -186,27 +175,19 @@ Both are already linked as a couple with chat messages and a completed game sess
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Start local Supabase + Expo (Mac/Linux only) |
+| `npm run dev` | Start local Supabase + Expo + auto-upload prompts (use this for everything) |
 | `npm run prod` | Start Expo pointing at prod Supabase |
 | `npm run prod:groq` | Prod with Groq as AI provider |
 | `npm run prod:claude` | Prod with Claude as AI provider |
 | `node scripts/help.mjs` | Print all available commands |
 
----
- Split terminals:
+**Always use `npm run dev` instead of `npx expo start` for local development.** It does everything `npx expo start` does, plus:
+- Starts local Supabase if it isn't running
+- Points `.env.local` at your local instance (not prod)
+- Auto-creates the `prompts` Storage bucket and uploads `supabase/prompts/*.txt` if missing
 
-  Terminal 1 (WSL) — keep Supabase running here:
-  supabase start
-  supabase functions serve --env-file supabase/functions/.env
+The prompt upload is idempotent — it skips files that already exist, so running `npm run dev` repeatedly is always safe.
 
-  Terminal 2 (Windows CMD) — run Expo here:
-  cd C:\Users\jacks\Desktop\couplegoai\couplegoai
-  npx expo start
+### When prompts get wiped
 
-  One thing to fix first — your .env.local will have 127.0.0.1 as the Supabase URL, but your phone can't reach that. Before starting Expo, edit .env.local and replace 127.0.0.1 with your Windows LAN IP:
-
-  EXPO_PUBLIC_SUPABASE_URL=http://192.168.x.x:54321
-
-  Find your LAN IP by running ipconfig in CMD and looking for the IPv4 address under your Wi-Fi or Ethernet adapter.
-
-  Then scan the QR code in Expo Go and it'll work over LAN, no tunnel.
+`supabase db reset` wipes Storage along with the DB. After a reset, run `npm run dev` and the prompts are re-uploaded automatically. Normal stop/start (`supabase stop` / `supabase start`) preserves Storage — no re-upload needed.

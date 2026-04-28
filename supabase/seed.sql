@@ -21,27 +21,30 @@ insert into auth.users (
   id, instance_id, email, encrypted_password,
   email_confirmed_at, created_at, updated_at,
   raw_app_meta_data, raw_user_meta_data,
-  is_super_admin, role, aud
+  is_super_admin, role, aud,
+  confirmation_token, recovery_token, email_change_token_new, email_change
 ) values
 (
   '00000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-000000000000',
   'alex@seed.local',
-  '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+  '$2a$06$lwbay73J1Lv5uvXnEqKqLO46ZCAKdLxTF98fpG5Kq/Epmfurvj1Qm',
   now(), now(), now(),
   '{"provider":"email","providers":["email"]}'::jsonb,
   '{}'::jsonb,
-  false, 'authenticated', 'authenticated'
+  false, 'authenticated', 'authenticated',
+  '', '', '', ''
 ),
 (
   '00000000-0000-0000-0000-000000000002',
   '00000000-0000-0000-0000-000000000000',
   'jordan@seed.local',
-  '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+  '$2a$06$lwbay73J1Lv5uvXnEqKqLO46ZCAKdLxTF98fpG5Kq/Epmfurvj1Qm',
   now(), now(), now(),
   '{"provider":"email","providers":["email"]}'::jsonb,
   '{}'::jsonb,
-  false, 'authenticated', 'authenticated'
+  false, 'authenticated', 'authenticated',
+  '', '', '', ''
 );
 
 -- ── 2. Fill out profile fields ───────────────────────────────
