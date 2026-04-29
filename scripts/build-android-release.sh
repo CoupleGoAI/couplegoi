@@ -68,12 +68,22 @@ require_env() {
 decode_base64_to_file() {
   VALUE="$1"
   OUTPUT_PATH="$2"
+  TMP_PATH="${OUTPUT_PATH}.tmp"
 
-  if printf '%s' "$VALUE" | base64 --decode > "$OUTPUT_PATH" 2>/dev/null; then
+  rm -f "$TMP_PATH"
+
+  if printf '%s' "$VALUE" | base64 --decode > "$TMP_PATH" 2>/dev/null; then
+    mv "$TMP_PATH" "$OUTPUT_PATH"
     return 0
   fi
 
-  printf '%s' "$VALUE" | base64 -D > "$OUTPUT_PATH"
+  if printf '%s' "$VALUE" | base64 -D > "$TMP_PATH"; then
+    mv "$TMP_PATH" "$OUTPUT_PATH"
+    return 0
+  fi
+
+  rm -f "$TMP_PATH"
+  return 1
 }
 
 detect_java_home() {
