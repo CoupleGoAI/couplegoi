@@ -100,6 +100,45 @@ function formatCoupleMemoryBlock(memory: CoupleMemoryRow | null): string {
   return lines.join("\n");
 }
 
+function hasMemoryContent(m: UserMemoryRow | null): boolean {
+  if (!m) return false;
+  if (m.summary?.trim()) return true;
+  return Object.values(m.traits ?? {}).some(
+    (v) => typeof v === "string" && (v as string).trim().length > 0,
+  );
+}
+
+function formatIndividualMemoryBlocks(
+  memoryA: UserMemoryRow | null,
+  memoryB: UserMemoryRow | null,
+): string {
+  if (!hasMemoryContent(memoryA) && !hasMemoryContent(memoryB)) return "";
+
+  const lines: string[] = [
+    "",
+    "PRIVATE CONTEXT — FOR BALANCE ONLY",
+    'Use this to stay genuinely balanced. Never reveal, reference, or quote what either partner shared privately. Do not say "I know from your private conversations..." — just let it inform your read.',
+  ];
+
+  if (hasMemoryContent(memoryA)) {
+    lines.push("", "What Partner A has shared individually:");
+    if (memoryA!.summary?.trim()) lines.push(memoryA!.summary.trim());
+    for (const [k, v] of Object.entries(memoryA!.traits ?? {})) {
+      if (typeof v === "string" && v.trim()) lines.push(`- ${k}: ${v}`);
+    }
+  }
+
+  if (hasMemoryContent(memoryB)) {
+    lines.push("", "What Partner B has shared individually:");
+    if (memoryB!.summary?.trim()) lines.push(memoryB!.summary.trim());
+    for (const [k, v] of Object.entries(memoryB!.traits ?? {})) {
+      if (typeof v === "string" && v.trim()) lines.push(`- ${k}: ${v}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 interface SoloPromptInput {
   coupled: boolean;
   datingStartDate: string | null;
@@ -133,6 +172,8 @@ async function buildCoupleSystemPrompt(
   datingStartDate: string | null,
   helpFocus: string | null,
   coupleMemory: CoupleMemoryRow | null,
+  memoryA: UserMemoryRow | null,
+  memoryB: UserMemoryRow | null,
 ): Promise<string> {
   const template = await fetchPromptTemplate(
     supabaseUrl,
@@ -146,6 +187,7 @@ async function buildCoupleSystemPrompt(
     FOCUS: helpFocus ?? "general relationship support",
     TODAY_DATE: new Date().toISOString().slice(0, 10),
     COUPLE_MEMORY: formatCoupleMemoryBlock(coupleMemory),
+    INDIVIDUAL_CONTEXT: formatIndividualMemoryBlocks(memoryA, memoryB),
   });
 }
 
@@ -335,30 +377,40 @@ Deno.serve(async (req) => {
       const partnerId =
         c.partner1_id === userId ? c.partner2_id : c.partner1_id;
 
-      const [partnerProfileResult, coupleHistResult, coupleMemoryResult] =
-        await Promise.all([
-          supabase
-            .from("profiles")
-            .select("name, help_focus")
-            .eq("id", partnerId)
-            .maybeSingle(),
-          supabase
-            .from("messages")
-            .select("role, content, user_id")
-            .or(`user_id.eq.${userId},user_id.eq.${partnerId}`)
-            .eq("conversation_type", "couple_chat")
-            .order("created_at", { ascending: false })
-            .limit(10),
-          supabase
-            .from("couple_memory")
-            .select("summary, traits, message_count")
-            .eq("couple_id", coupleId)
-            .maybeSingle(),
-        ]);
+      const [
+        partnerProfileResult,
+        coupleHistResult,
+        coupleMemoryResult,
+        partnerMemoryResult,
+      ] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("name, help_focus")
+          .eq("id", partnerId)
+          .maybeSingle(),
+        supabase
+          .from("messages")
+          .select("role, content, user_id")
+          .or(`user_id.eq.${userId},user_id.eq.${partnerId}`)
+          .eq("conversation_type", "couple_chat")
+          .order("created_at", { ascending: false })
+          .limit(10),
+        supabase
+          .from("couple_memory")
+          .select("summary, traits, message_count")
+          .eq("couple_id", coupleId)
+          .maybeSingle(),
+        supabase
+          .from("user_memory")
+          .select("summary, traits, message_count")
+          .eq("user_id", partnerId)
+          .maybeSingle(),
+      ]);
 
       conversationType = "couple_chat";
       activeCoupleId = coupleId;
       coupleMemory = (coupleMemoryResult.data ?? null) as CoupleMemoryRow | null;
+      const partnerMemory = (partnerMemoryResult.data ?? null) as UserMemoryRow | null;
       coupleNameA = profile?.name ?? "";
       const partnerProfile = partnerProfileResult.data as {
         name: string | null;
@@ -374,6 +426,8 @@ Deno.serve(async (req) => {
         profile?.dating_start_date ?? null,
         focus,
         coupleMemory,
+        memory,
+        partnerMemory,
       );
 
       const rawCoupleHistory = (coupleHistResult.data ?? []) as Array<{
