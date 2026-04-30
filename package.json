@@ -22,7 +22,9 @@
     "test": "jest",
     "release:android:prepare": "node scripts/prepare-android-release.mjs",
     "release:android:build": "sh scripts/build-android-release.sh",
-    "release:android:local": "sh scripts/release-android-local.sh"
+    "release:android:local": "sh scripts/release-android-local.sh",
+    "ios:release:debug": "sh scripts/release-ios-local.sh --no-clean",
+    "release:ios:native": "sh scripts/release-ios-local.sh --clean"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
