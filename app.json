@@ -14,7 +14,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.couplegoai.app",
-      "appleTeamId": "9TZQG2KJ78",
       "infoPlist": {
         "NSCameraUsageDescription": "Used to scan your partner's QR code to connect.",
         "NSPhotoLibraryUsageDescription": "Used to share photos in chat."
